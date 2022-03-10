@@ -1,0 +1,92 @@
+{% import "_includes/forms" as forms %}
+
+<h2>Settings for the search index</h2>
+
+{{ forms.lightswitchField({
+    label: "Transition"|t("elastic"),
+    id: 'transition',
+    name: 'transition',
+    instructions: "When enabled, both, the Craft internal search index and the new ELasticsearch index will be filled. But only the Craft internal search index will be used for searching."|t("elastic"),
+    on: settings.transition,
+}) }}
+
+{{ forms.autosuggestField({
+    label: "Endpoint"|t("elastic"),
+    id: 'endpoint',
+    name: 'endpoint',
+    instructions: "The endpoint URL of your elasticsearch server or cluster."|t("elastic"),
+    value: settings.endpoint,
+    suggestEnvVars: true,
+    placeholder: 'https://...',
+    type: 'text',
+    errors: settings.getErrors('endpoint'),
+    required: true
+}) }}
+
+{{ forms.selectField({
+    label: "Authentication"|t("elastic"),
+    id: 'authentication',
+    name: 'authentication',
+    instructions: "The authentication method to use."|t("elastic"),
+    value: settings.authentication,
+    options: authenticationOptions,
+    required: true
+}) }}
+
+{{ forms.autosuggestField({
+    label: "Username"|t("elastic"),
+    id: 'username',
+    name: 'username',
+    instructions: "The username to user for authentication."|t("elastic"),
+    value: settings.username,
+    suggestEnvVars: true,
+    type: 'text',
+    required: false
+}) }}
+
+{{ forms.autosuggestField({
+    label: "Password"|t("elastic"),
+    id: 'password',
+    name: 'password',
+    instructions: "The password to use for authentication."|t("elastic"),
+    value: settings.password,
+    suggestEnvVars: true,
+    type: 'text',
+    required: false
+}) }}
+
+{{ forms.autosuggestField({
+    label: "AWS Region"|t("elastic"),
+    id: 'region',
+    name: 'region',
+    instructions: "The AWS region the domain endpoint is in."|t("elastic"),
+    value: settings.region,
+    suggestEnvVars: true,
+    type: 'text',
+    errors: settings.getErrors('region'),
+    required: false
+}) }}
+
+{{ forms.autosuggestField({
+    label: "Index name"|t("elastic"),
+    id: 'indexName',
+    name: 'indexName',
+    instructions: "The name of the index to use. It will be prepended to every site's handle."|t("elastic"),
+    value: settings.indexName,
+    suggestEnvVars: true,
+    type: 'text',
+    errors: settings.getErrors('indexName'),
+    required: true
+}) }}
+
+{{ forms.autosuggestField({
+    label: "Field prefix"|t("elastic"),
+    id: 'fieldPrefix',
+    name: 'fieldPrefix',
+    instructions: "Prefix for all field handles in the index."|t("elastic"),
+    value: settings.fieldPrefix,
+    suggestEnvVars: true,
+    type: 'text',
+    errors: settings.getErrors('fieldPrefix'),
+    required: true
+}) }}

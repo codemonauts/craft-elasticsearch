@@ -1,0 +1,27 @@
+{% import "_includes/forms" as forms %}
+
+<h2>Status Elasticsearch indexes</h2>
+<div class="readable">
+    <table id="elastic-status" class="data fullwidth ">
+        <thead>
+        <tr>
+            <th>{{ "Site"|t('app') }}</th>
+            <th>{{ "Alias"|t('app') }}</th>
+            <th class="nowrap">{{ "Active index"|t('elastic') }}</th>
+            <th class="nowrap rightalign">{{ "Elements in index"|t('elastic') }}</th>
+            <th class="nowrap rightalign">{{ "Stored data"|t('elastic') }}</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for item in indexStatus %}
+            <tr>
+                <td>{{ item.site }}</td>
+                <td>{{ item.alias }}</td>
+                <td>{{ item.index }}</td>
+                <td class="rightalign">{{ item.elements }}</td>
+                <td class="rightalign">{{ item.storage|filesize }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
