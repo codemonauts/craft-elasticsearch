@@ -6,6 +6,10 @@
 
 - Added console command to list all aliases and indexes of the configured Elasticsearch cluster. 
 
+### Fixed
+
+- Utility page handles not existing index.
+
 ## 1.0.0 - 2022-4-08
 
 ### Added

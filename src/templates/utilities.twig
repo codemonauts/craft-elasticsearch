@@ -19,7 +19,7 @@
                 <td>{{ item.alias }}</td>
                 <td>{{ item.index }}</td>
                 <td class="rightalign">{{ item.elements }}</td>
-                <td class="rightalign">{{ item.storage|filesize }}</td>
+                <td class="rightalign">{{ item.storage|filesize(2) }}</td>
             </tr>
         {% endfor %}
         </tbody>

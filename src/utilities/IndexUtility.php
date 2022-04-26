@@ -5,6 +5,7 @@ namespace codemonauts\elastic\utilities;
 use codemonauts\elastic\Elastic;
 use Craft;
 use craft\base\Utility;
+use Elasticsearch\Common\Exceptions\Missing404Exception;
 
 class IndexUtility extends Utility
 {
@@ -42,15 +43,25 @@ class IndexUtility extends Utility
 
         $indexStatus = [];
         foreach ($sites as $site) {
-            $stats = $indexService->stats($site);
-            $indexName = $indexService->getCurrentIndex($site);
-            $indexStatus[] = [
-                'site' => $site,
-                'alias' => $indexService->getIndexName($site),
-                'index' => $indexName,
-                'elements' => $stats['indices'][$indexName]['total']['docs']['count'],
-                'storage' => $stats['indices'][$indexName]['total']['store']['size_in_bytes'],
-            ];
+            try {
+                $stats = $indexService->stats($site);
+                $indexName = $indexService->getCurrentIndex($site);
+                $indexStatus[] = [
+                    'site' => $site,
+                    'alias' => $indexService->getIndexName($site),
+                    'index' => $indexName,
+                    'elements' => $stats['indices'][$indexName]['total']['docs']['count'],
+                    'storage' => $stats['indices'][$indexName]['total']['store']['size_in_bytes'],
+                ];
+            } catch (Missing404Exception $e) {
+                $indexStatus[] = [
+                    'site' => $site,
+                    'alias' => 'N/A',
+                    'index' => 'N/A',
+                    'elements' => 'N/A',
+                    'storage' => 'N/A',
+                ];
+            }
         }
 
         return Craft::$app->getView()->renderTemplate('elastic/utilities', [
