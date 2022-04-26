@@ -6,9 +6,30 @@
     label: "Transition"|t("elastic"),
     id: 'transition',
     name: 'transition',
-    instructions: "When enabled, both, the Craft internal search index and the new ELasticsearch index will be filled. But only the Craft internal search index will be used for searching."|t("elastic"),
+    instructions: "When enabled, both, the Craft internal search index and the new Elasticsearch index will be updated. But only the Craft internal search index will be used for searching."|t("elastic"),
     on: settings.transition,
+    reverseToggle: "modeOff",
+    toggle: "modeOn"
 }) }}
+
+{% if settings.lastMode %}
+<div id="modeOff" class="readable hidden">
+    <blockquote class="note warning">
+        <p>Deactivate the transition mode only if you are sure that you have re-indexed all existing elements to the Elastisearch index. From then on, only the Elasticsearch index will be used and the database index will become outdated.</p>
+        <p>You can switch back to transition mode at any time.</p>
+        <p><a href="#">Check the documentation</a></p>
+    </blockquote>
+</div>
+{% endif %}
+
+{% if not settings.lastMode %}
+<div id="modeOn" class="readable hidden">
+    <blockquote class="note tip">
+        <p>When you reactivate the transition mode, all new and updated elements since the last deactivation ({{ settings.lastSwitch|datetime('short') }}) are automatically re-indexed. This will get the outdated database index up to date.</p>
+        <p><a href="#">Check the documentation</a></p>
+    </blockquote>
+</div>
+{% endif %}
 
 {{ forms.autosuggestField({
     label: "Endpoint"|t("elastic"),

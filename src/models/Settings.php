@@ -11,7 +11,18 @@ class Settings extends Model
      * @var bool Running in transition mode. Both, the Craft internal search index and the Elasticsearch index are
      *           filled but only the Craft internal search index will be used for searching.
      */
-    public $transition = true;
+    public bool $transition = true;
+
+    /**
+     * @var bool Status of the transition mode before saving the settings.
+     */
+    public bool $lastMode = true;
+
+    /**
+     * @var int Timestamp of the last deactivating of the transition mode. Used to smooth switch back and reindex
+     *          elements updated in the meantime.
+     */
+    public int $lastSwitch = 0;
 
     /**
      * @var string The endpoint URL to use.

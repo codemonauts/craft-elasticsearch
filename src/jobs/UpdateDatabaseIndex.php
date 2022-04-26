@@ -2,12 +2,11 @@
 
 namespace codemonauts\elastic\jobs;
 
-use codemonauts\elastic\Elastic;
 use Craft;
 use craft\base\ElementInterface;
 use craft\queue\BaseJob;
 
-class UpdateSearchIndex extends BaseJob
+class UpdateDatabaseIndex extends BaseJob
 {
     /**
      * @var string|ElementInterface|null The type of elements to update.
@@ -30,7 +29,7 @@ class UpdateSearchIndex extends BaseJob
     public function execute($queue)
     {
         $class = $this->elementType;
-        $search = Elastic::$plugin->getSearch();
+        $search = Craft::$app->getSearch();
 
         $query = $class::find()
             ->drafts(null)
@@ -58,6 +57,6 @@ class UpdateSearchIndex extends BaseJob
      */
     protected function defaultDescription(): ?string
     {
-        return Craft::t('elastic', 'Updating Elasticsearch indexes');
+        return Craft::t('elastic', 'Updating database search index');
     }
 }

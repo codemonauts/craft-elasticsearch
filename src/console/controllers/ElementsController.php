@@ -2,7 +2,7 @@
 
 namespace codemonauts\elastic\console\controllers;
 
-use codemonauts\elastic\jobs\UpdateSearchIndex;
+use codemonauts\elastic\jobs\UpdateElasticsearchIndex;
 use Craft;
 use craft\base\ElementInterface;
 use craft\db\Query;
@@ -36,8 +36,6 @@ class ElementsController extends Controller
                 continue;
             }
             $count = (new Query())->from($elementsTable)->where([
-                'dateDeleted' => null,
-                'revisionId' => null,
                 'type' => $elementType,
             ])->count();
 
@@ -50,8 +48,6 @@ class ElementsController extends Controller
             $query = (new Query())->select(['id', 'type'])
                 ->from($elementsTable)
                 ->where([
-                    'dateDeleted' => null,
-                    'revisionId' => null,
                     'type' => $type,
                 ])
                 ->orderBy('dateCreated desc');
@@ -64,7 +60,7 @@ class ElementsController extends Controller
             Console::startProgress(0, $total);
             foreach ($query->batch() as $rows) {
                 foreach ($rows as $element) {
-                    $job = new UpdateSearchIndex([
+                    $job = new UpdateElasticsearchIndex([
                         'elementType' => $element['type'],
                         'elementId' => $element['id'],
                         'siteId' => $siteHandle,

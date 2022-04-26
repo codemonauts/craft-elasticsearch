@@ -2,8 +2,9 @@
 
 namespace codemonauts\elastic;
 
+use codemonauts\elastic\jobs\ReindexUpdatedElements;
+use codemonauts\elastic\jobs\UpdateElasticsearchIndex;
 use codemonauts\elastic\jobs\UpdateMapping;
-use codemonauts\elastic\jobs\UpdateSearchIndex;
 use codemonauts\elastic\models\Settings;
 use codemonauts\elastic\services\Elasticsearch;
 use codemonauts\elastic\services\Indexes;
@@ -13,8 +14,10 @@ use Craft;
 use craft\base\ElementInterface;
 use craft\base\Plugin;
 use craft\events\ElementEvent;
+use craft\events\ModelEvent;
 use craft\events\RegisterComponentTypesEvent;
 use craft\helpers\App;
+use craft\helpers\DateTimeHelper;
 use craft\helpers\ElementHelper;
 use craft\helpers\UrlHelper;
 use craft\services\Elements;
@@ -101,11 +104,7 @@ class Elastic extends Plugin
                     return;
                 }
 
-                if (count($element::searchableAttributes()) === 0) {
-                    return;
-                }
-
-                Craft::$app->getQueue()->push(new UpdateSearchIndex([
+                Craft::$app->getQueue()->push(new UpdateElasticsearchIndex([
                     'elementType' => $elementType,
                     'elementId' => $element->id,
                 ]));
@@ -120,6 +119,27 @@ class Elastic extends Plugin
         // Register utilities
         Craft::$app->getUtilities()->on(Utilities::EVENT_REGISTER_UTILITY_TYPES, function(RegisterComponentTypesEvent $event) {
             $event->types[] = IndexUtility::class;
+        });
+
+        // Register settings event
+        $this->on(Plugin::EVENT_BEFORE_SAVE_SETTINGS, function(ModelEvent $event) {
+            $settings = $event->sender->getSettings();
+
+            // Mode has changed
+            if ($settings->lastMode !== $settings->transition) {
+                // Switch from transition mode to full mode, save the timestamp
+                if ($settings->lastMode === true) {
+                    $settings->lastMode = false;
+                    $settings->lastSwitch = time();
+                } else {
+                    Craft::$app->getQueue()->push(new ReindexUpdatedElements([
+                        'startDate' => DateTimeHelper::toDateTime($settings->lastSwitch),
+                        'toDatabaseIndex' => true,
+                    ]));
+                    $settings->lastMode = true;
+                    $settings->lastSwitch = 0;
+                }
+            }
         });
     }
 
