@@ -654,6 +654,22 @@ class Indexes extends Component
         return Elastic::$plugin->getElasticsearch()->getClient()->getSource($params);
     }
 
+    /**
+     * Returns all aliases and indexes of the configured Elasticsearch cluster.
+     *
+     * @return array
+     * @throws InvalidConfigException
+     */
+    public function list()
+    {
+        $aliases = Elastic::$plugin->getElasticsearch()->getClient()->cat()->aliases();
+        $indexes = Elastic::$plugin->getElasticsearch()->getClient()->cat()->indices();
+
+        return [
+            'aliases' => $aliases,
+            'indexes' => $indexes,
+        ];
+    }
 
 
     // Functions for analyzer

@@ -3,6 +3,7 @@
 namespace codemonauts\elastic\console\controllers;
 
 use codemonauts\elastic\Elastic;
+use craft\helpers\Console;
 use craft\helpers\DateTimeHelper;
 use craft\models\Site;
 use Elasticsearch\Common\Exceptions\Missing404Exception;
@@ -10,6 +11,7 @@ use yii\base\InvalidConfigException;
 use yii\console\Controller;
 use Craft;
 use craft\errors\SiteNotFoundException;
+use yii\console\widgets\Table;
 use yii\helpers\BaseConsole;
 
 class IndexController extends Controller
@@ -210,9 +212,66 @@ class IndexController extends Controller
 
             if (!$result) {
                 $this->stderr('Error creating clone.');
+            } else {
+                $this->stdout('Index cloned.' . PHP_EOL, Console::FG_GREEN);
             }
         }
     }
+
+    /**
+     * Lists all aliases and indexes from the configured Elasticsearch cluster.
+     */
+    public function actionList()
+    {
+        $indexService = Elastic::$plugin->getIndexes();
+        $result = $indexService->list();
+        $table = new Table();
+
+        $this->stdout('Aliases' . PHP_EOL);
+        $table->setHeaders(['Alias', 'Current index']);
+        $rows = [];
+        foreach ($result['aliases'] as $alias) {
+            if (strpos($alias['alias'], '.') === 0) {
+                continue;
+            }
+            $rows[] = [
+                $alias['alias'],
+                $alias['index'],
+            ];
+        }
+        echo $table->setRows($rows)->run() . PHP_EOL;
+
+        $this->stdout('Indexes' . PHP_EOL);
+        $table->setHeaders(['Health', 'Index', 'Status', 'Documents', 'Size']);
+        $rows = [];
+        foreach ($result['indexes'] as $index) {
+            if (strpos($index['index'], '.') === 0) {
+                continue;
+            }
+            switch ($index['health']) {
+                case 'red':
+                    $format = [Console::FG_RED];
+                    break;
+                case 'yellow':
+                    $format = [Console::FG_YELLOW];
+                    break;
+                case 'green':
+                    $format = [Console::FG_GREEN];
+                    break;
+                default:
+                    $format = [Console::FG_GREY];
+            }
+            $rows[] = [
+                Console::ansiFormat($index['health'], $format),
+                $index['index'],
+                $index['status'],
+                $index['docs.count'],
+                $index['store.size'],
+            ];
+        }
+        echo $table->setRows($rows)->run();
+    }
+
 
     /**
      * Returns the sites as array.
