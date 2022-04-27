@@ -65,7 +65,7 @@ class Search extends Component
             return true;
         }
 
-        $dirtyKeywords = [];
+        $keywords = [];
         $site = Craft::$app->getSites()->getSiteById($element->siteId);
         if (!$site) {
             throw new SiteNotFoundException();
@@ -92,21 +92,17 @@ class Search extends Component
             $searchableAttributes['title'] = true;
         }
         foreach (array_keys($searchableAttributes) as $attribute) {
-            $dirtyKeywords['attribute_' . $attribute] = $element->getSearchKeywords($attribute);
+            $keywords['attribute_' . $attribute] = $element->getSearchKeywords($attribute);
         }
 
         // Update the custom fields' keywords
         foreach ($updateFields as $field) {
             $fieldValue = $element->getFieldValue($field->handle);
-            $dirtyKeywords['field_' . $field->id] = $field->getSearchKeywords($fieldValue, $element);
+            $keywords['field_' . $field->id] = $field->getSearchKeywords($fieldValue, $element);
         }
 
         // Write keywords to index
-        $cleanKeywords = [];
-        foreach ($dirtyKeywords as $key => $dirtyKeyword) {
-            $cleanKeywords[$key] = SearchHelper::normalizeKeywords($dirtyKeyword, [], true, $site->language);
-        }
-        $elementsService->add($element, $site, $cleanKeywords);
+        $elementsService->add($element, $site, $keywords);
 
         // Release the lock
         $mutex->release($lockKey);
