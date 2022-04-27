@@ -86,6 +86,7 @@ class Elements extends Component
     public function search(SearchQuery $searchQuery, array $scope, Site $site)
     {
         $indexes = Elastic::$plugin->getIndexes();
+        $settings = Elastic::$settings;
 
         // Get tokens for query
         $tokens = $searchQuery->getTokens();
@@ -123,6 +124,14 @@ class Elements extends Component
             }
         }
 
+        // Add boosts
+        $fields = ['*'];
+        if (is_array($settings->fieldBoosts)) {
+            foreach ($settings->fieldBoosts as $field) {
+                $fields[] = $indexes->mapAttributeToField($field['handle']).'^'.$field['boost'];
+            }
+        }
+
         $params = [
             'index' => $indexes->getIndexName($site),
             'body' => [
@@ -131,7 +140,7 @@ class Elements extends Component
                     'bool' => [
                         'must' => [
                             'query_string' => [
-                                'fields' => ['*'],
+                                'fields' => $fields,
                                 'query' => implode(' ', $queryTokens),
                             ],
                         ],

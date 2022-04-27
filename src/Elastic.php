@@ -177,7 +177,17 @@ class Elastic extends Plugin
                 'authenticationOptions' => [
                     'aws' => 'AWS',
                     'basicauth' => 'BasicAuth'
-                ]
+                ],
+                'boostsCols' => [
+                    'handle' => [
+                        'heading' => 'Field handle*',
+                        'type' => 'singleline',
+                    ],
+                    'boost' => [
+                        'heading' => 'Boost*',
+                        'type' => 'number',
+                    ],
+                ],
             ]
         );
     }

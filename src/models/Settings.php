@@ -61,6 +61,11 @@ class Settings extends Model
     public $fieldPrefix = 'craft_';
 
     /**
+     * @var array Boosts for fields.
+     */
+    public $fieldBoosts = null;
+
+    /**
      * @inheritdoc
      */
     public function rules(): array

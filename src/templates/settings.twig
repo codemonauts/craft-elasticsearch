@@ -111,3 +111,16 @@
     errors: settings.getErrors('fieldPrefix'),
     required: true
 }) }}
+
+<h2>Tuning</h2>
+
+{{ forms.editableTableField({
+    first: true,
+    label: "Field boosting"|t("elastic"),
+    instructions: 'Add boosts to attributes or field handles.'|t("elastic"),
+    id: 'fieldBoosts',
+    name: 'fieldBoosts',
+    cols: boostsCols,
+    rows: settings.fieldBoosts,
+    errors: settings.getErrors('fieldBoosts'),
+}) }}
