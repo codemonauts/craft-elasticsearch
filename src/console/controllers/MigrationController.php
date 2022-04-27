@@ -54,7 +54,7 @@ class MigrationController extends Controller
             return;
         }
 
-        if (!$this->confirm('Reindex all elements created or updated since ' . $startDate->format(DATE_ISO8601) . '?')) {
+        if (!$this->confirm('Re-index all elements created or updated since ' . $startDate->format(DATE_ISO8601) . '?')) {
             return;
         }
 

@@ -17,7 +17,7 @@
     <blockquote class="note warning">
         <p>Deactivate the transition mode only if you are sure that you have re-indexed all existing elements to the Elastisearch index. From then on, only the Elasticsearch index will be used and the database index will become outdated.</p>
         <p>You can switch back to transition mode at any time.</p>
-        <p><a href="#">Check the documentation</a></p>
+        <p><a href="https://plugins.codemonauts.com/plugins/elasticsearch/Migration.html">Check the documentation</a></p>
     </blockquote>
 </div>
 {% endif %}
@@ -26,7 +26,7 @@
 <div id="modeOn" class="readable hidden">
     <blockquote class="note tip">
         <p>When you reactivate the transition mode, all new and updated elements since the last deactivation ({{ settings.lastSwitch|datetime('short') }}) are automatically re-indexed. This will get the outdated database index up to date.</p>
-        <p><a href="#">Check the documentation</a></p>
+        <p><a href="https://plugins.codemonauts.com/plugins/elasticsearch/Migration.html">Check the documentation</a></p>
     </blockquote>
 </div>
 {% endif %}

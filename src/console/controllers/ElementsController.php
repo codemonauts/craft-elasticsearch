@@ -14,15 +14,15 @@ use yii\console\Controller;
 class ElementsController extends Controller
 {
     /**
-     * Reindex elements to current index.
+     * Index elements to current index.
      *
      * @param string $siteHandle The site to index. Default '*' to reindex elements of all sites.
-     * @param string $channel The queue channel to use.
+     * @param string $queue The queue to use.
      * @param int $priority The queue priority to use.
      */
-    public function actionReindex(string $siteHandle = '*', string $channel = 'queue', int $priority = 2048)
+    public function actionIndex(string $siteHandle = '*', string $queue = 'queue', int $priority = 2048)
     {
-        $queue = Craft::$app->$channel;
+        $queue = Craft::$app->$queue;
         $elementsTable = Table::ELEMENTS;
 
         /**
@@ -39,7 +39,7 @@ class ElementsController extends Controller
                 'type' => $elementType,
             ])->count();
 
-            if ($this->confirm("Reindex all $count elements of type '$elementType'? ")) {
+            if ($this->confirm("Index all $count elements of type '$elementType'? ")) {
                 $elementTypesToIndex[] = $elementType;
             }
         }
@@ -55,7 +55,7 @@ class ElementsController extends Controller
             $total = $query->count();
             $counter = 0;
 
-            $this->stdout("Reindex $total elements of type '$type' ..." . PHP_EOL);
+            $this->stdout("Index $total elements of type '$type' ..." . PHP_EOL);
 
             Console::startProgress(0, $total);
             foreach ($query->batch() as $rows) {

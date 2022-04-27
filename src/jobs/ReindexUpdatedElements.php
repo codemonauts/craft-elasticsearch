@@ -40,7 +40,7 @@ class ReindexUpdatedElements extends BaseJob
         $total = count($elements);
 
         foreach ($elements as $i => $element) {
-            $this->setProgress($queue, ($i + 1) / $total);
+            $this->setProgress($queue, ($i + 1) / $total, ($i + 1) . ' / ' . $total);
             if ($this->toDatabaseIndex) {
                 Craft::$app->getQueue()->push(new UpdateDatabaseIndex([
                     'elementType' => $element['type'],

@@ -56,7 +56,7 @@ class IndexController extends Controller
                 $this->stdout('":' . PHP_EOL);
                 $this->stdout('Current index in use: ' . $indexName . PHP_EOL);
                 $this->stdout('Elements in index: ' . $result['indices'][$indexName]['total']['docs']['count'] . PHP_EOL);
-                $this->stdout('Stored data: ' . Craft::$app->getFormatter()->asShortSize($result['indices'][$indexName]['total']['store']['size_in_bytes']) . PHP_EOL);
+                $this->stdout('Stored data: ' . Craft::$app->getFormatter()->asShortSize($result['indices'][$indexName]['total']['store']['size_in_bytes']) . PHP_EOL . PHP_EOL);
             } catch (Missing404Exception $e) {
                 $this->stderr('Index for site "');
                 $this->stderr($site->handle, BaseConsole::FG_YELLOW);
@@ -83,7 +83,15 @@ class IndexController extends Controller
 
         $indexService = Elastic::$plugin->getIndexes();
         $sites = $this->_getSites($siteHandle);
+        $table = new Table();
+        $table->setHeaders([
+            'Field handle',
+            'Source',
+        ]);
+
         foreach ($sites as $site) {
+            $element = Craft::$app->getElements()->getElementById($elementId, null, $site->id);
+            $rows = [];
             $this->stdout('Index source of element "');
             $this->stdout($element, BaseConsole::FG_YELLOW);
             $this->stdout('" for site "');
@@ -91,9 +99,10 @@ class IndexController extends Controller
             $this->stdout('":' . PHP_EOL);
             try {
                 $mappings = Elastic::$plugin->getIndexes()->source($elementId, $site);
-                foreach ($mappings as $field => $mapping) {
-                    $this->stdout($indexService->mapFieldToAttribute($field) . ': ' . $mapping . PHP_EOL);
+                foreach ($mappings as $field => $source) {
+                    $rows[] = [$indexService->mapFieldToAttribute($field), $source];
                 }
+                echo $table->setRows($rows)->run() . PHP_EOL . PHP_EOL;
             } catch (Missing404Exception $e) {
                 $this->stdout('Element not indexed!' . PHP_EOL, BaseConsole::FG_RED);
             }
@@ -170,7 +179,7 @@ class IndexController extends Controller
             $this->stdout('Old index: ' . $result['oldIndexName'] . PHP_EOL);
             $this->stdout('New index: ' . $result['newIndexName'] . PHP_EOL);
             $this->stdout('Finished after: ' . $timeTook . PHP_EOL);
-            $this->stdout('Total of ' . $result['total'] . ' elements migrated.' . PHP_EOL);
+            $this->stdout('Total of ' . $result['total'] . ' elements migrated.' . PHP_EOL . PHP_EOL);
         }
     }
 
