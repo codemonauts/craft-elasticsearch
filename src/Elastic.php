@@ -11,7 +11,6 @@ use codemonauts\elastic\services\Indexes;
 use codemonauts\elastic\services\Search;
 use codemonauts\elastic\utilities\IndexUtility;
 use Craft;
-use craft\base\ElementInterface;
 use craft\base\Plugin;
 use craft\events\ElementEvent;
 use craft\events\ModelEvent;
@@ -32,19 +31,19 @@ use craft\services\Utilities;
 class Elastic extends Plugin
 {
     /**
-     * @var Elastic
+     * @var Elastic|null
      */
-    public static $plugin;
+    public static ?Elastic $plugin;
 
     /**
-     * @var Settings
+     * @var Settings|null
      */
-    public static $settings;
+    public static ?Settings $settings;
 
     /**
      * @inheritDoc
      */
-    public $hasCpSettings = true;
+    public bool $hasCpSettings = true;
 
     /**
      * @inheritDoc
@@ -58,7 +57,7 @@ class Elastic extends Plugin
         self::$settings = self::$plugin->getSettings();
 
         // If no endpoint is set, do nothing.
-        if (Elastic::env(self::$settings->endpoint) === '') {
+        if (App::parseEnv(self::$settings->endpoint) === '') {
             return;
         }
 
@@ -75,16 +74,16 @@ class Elastic extends Plugin
             'elasticsearch' => [
                 'class' => Elasticsearch::class,
                 'hosts' => [
-                    Elastic::env(self::$settings->endpoint),
+                    App::parseEnv(self::$settings->endpoint),
                 ],
                 'authentication' => self::$settings->authentication,
-                'username' => Elastic::env(self::$settings->username),
-                'password' => Elastic::env(self::$settings->password),
-                'region' => Elastic::env(self::$settings->region),
+                'username' => App::parseEnv(self::$settings->username),
+                'password' => App::parseEnv(self::$settings->password),
+                'region' => App::parseEnv(self::$settings->region),
             ],
             'indexes' => [
                 'class' => Indexes::class,
-                'indexName' => Elastic::env(self::$settings->indexName),
+                'indexName' => App::parseEnv(self::$settings->indexName),
             ],
             'elements' => services\Elements::class,
             'search' => Search::class,
@@ -93,10 +92,7 @@ class Elastic extends Plugin
 
         // When in transition mode, add event to update Elasticsearch indexes as well.
         if (self::$settings->transition) {
-            Craft::$app->elements->on(Elements::EVENT_AFTER_SAVE_ELEMENT, function(ElementEvent $event) {
-                /**
-                 * @var ElementInterface $element
-                 */
+            Craft::$app->elements->on(Elements::EVENT_AFTER_SAVE_ELEMENT, function (ElementEvent $event) {
                 $element = $event->element;
                 $elementType = get_class($element);
 
@@ -112,17 +108,17 @@ class Elastic extends Plugin
         }
 
         // Register event when changing field definitions
-        Craft::$app->fields->on(Fields::EVENT_AFTER_SAVE_FIELD, function() {
+        Craft::$app->fields->on(Fields::EVENT_AFTER_SAVE_FIELD, function () {
             Craft::$app->queue->push(new UpdateMapping());
         });
 
         // Register utilities
-        Craft::$app->getUtilities()->on(Utilities::EVENT_REGISTER_UTILITY_TYPES, function(RegisterComponentTypesEvent $event) {
+        Craft::$app->getUtilities()->on(Utilities::EVENT_REGISTER_UTILITY_TYPES, function (RegisterComponentTypesEvent $event) {
             $event->types[] = IndexUtility::class;
         });
 
         // Register settings event
-        $this->on(Plugin::EVENT_BEFORE_SAVE_SETTINGS, function(ModelEvent $event) {
+        $this->on(Plugin::EVENT_BEFORE_SAVE_SETTINGS, function (ModelEvent $event) {
             $settings = $event->sender->getSettings();
 
             // Mode has changed
@@ -146,7 +142,7 @@ class Elastic extends Plugin
     /**
      * @inheritDoc
      */
-    public function afterInstall()
+    protected function afterInstall(): void
     {
         parent::afterInstall();
 
@@ -162,7 +158,7 @@ class Elastic extends Plugin
     /**
      * @inheritDoc
      */
-    protected function createSettingsModel()
+    protected function createSettingsModel(): Settings
     {
         return new Settings();
     }
@@ -176,7 +172,7 @@ class Elastic extends Plugin
                 'settings' => $this->getSettings(),
                 'authenticationOptions' => [
                     'aws' => 'AWS',
-                    'basicauth' => 'BasicAuth'
+                    'basicauth' => 'BasicAuth',
                 ],
                 'boostsCols' => [
                     'handle' => [
@@ -190,29 +186,6 @@ class Elastic extends Plugin
                 ],
             ]
         );
-    }
-
-    /**
-     * Parse environment string. Should be replaced with Craft's App::parseEnv after dropping 3.6 support.
-     *
-     * @param string|null $str The string to parse.
-     *
-     * @return array|string|null
-     */
-    public static function env(string $str = null)
-    {
-        if ($str === null) {
-            return null;
-        }
-
-        if (preg_match('/^\$(\w+)$/', $str, $matches)) {
-            $value = App::env($matches[1]);
-            if ($value !== false) {
-                $str = $value;
-            }
-        }
-
-        return $str;
     }
 
     public function getElasticsearch(): Elasticsearch

@@ -11,7 +11,7 @@ class UpdateMapping extends BaseJob
     /**
      * @inheritDoc
      */
-    public function execute($queue)
+    public function execute($queue): void
     {
         $sites = Craft::$app->sites->getAllSites();
         $indexes = Elastic::$plugin->getIndexes();

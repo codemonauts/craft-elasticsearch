@@ -28,7 +28,7 @@ class IndexUtility extends Utility
     /**
      * @inheritdoc
      */
-    public static function iconPath()
+    public static function iconPath(): ?string
     {
         return Craft::getAlias('@codemonauts/elastic/icon-mask.svg');
     }
@@ -53,7 +53,7 @@ class IndexUtility extends Utility
                     'elements' => $stats['indices'][$indexName]['total']['docs']['count'],
                     'storage' => $stats['indices'][$indexName]['total']['store']['size_in_bytes'],
                 ];
-            } catch (Missing404Exception $e) {
+            } catch (Missing404Exception) {
                 $indexStatus[] = [
                     'site' => $site,
                     'alias' => 'N/A',

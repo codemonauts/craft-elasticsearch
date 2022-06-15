@@ -5,54 +5,30 @@ namespace codemonauts\elastic\services;
 use codemonauts\elastic\Elastic;
 use codemonauts\elastic\jobs\DeleteOrphanedIndexes;
 use Craft;
-use craft\base\Component;
 use craft\base\ElementInterface;
 use craft\base\FieldInterface;
 use craft\elements\db\ElementQuery;
-use craft\errors\InvalidFieldException;
 use craft\errors\SiteNotFoundException;
 use craft\events\SearchEvent;
-use craft\helpers\Search as SearchHelper;
+use craft\helpers\ArrayHelper;
 use craft\search\SearchQuery;
+use craft\services\Search as CraftSearch;
 use Elasticsearch\Common\Exceptions\BadRequest400Exception;
-use yii\base\InvalidConfigException;
 
 /**
  * Handles search in backend with Elasticsearch
  */
-class Search extends Component
+class Search extends CraftSearch
 {
-    /**
-     * @event SearchEvent The event that is triggered before a search is performed.
-     */
-    const EVENT_BEFORE_SEARCH = 'beforeSearch';
-
-    /**
-     * @event SearchEvent The event that is triggered after a search is performed.
-     */
-    const EVENT_AFTER_SEARCH = 'afterSearch';
-
-    /**
-     * @var bool Whether full-text searches should be used ever. We will always use full-text search :)
-     * @since 3.4.10
-     */
-    public $useFullText = true;
-
     /**
      * @var int|null The minimum word length that keywords must be in order to use a full-text search. Defaults to 2.
      */
-    public $minFullTextWordLength;
+    public ?int $minFullTextWordLength;
 
     /**
-     * Indexes the attributes of a given element defined by its element type.
-     *
-     * @param ElementInterface $element
-     * @param string[]|null $fieldHandles Only for compatibility. We always index all searchable fields and attributes.
-     *
-     * @return bool Whether the indexing was a success.
-     * @throws SiteNotFoundException|InvalidFieldException|InvalidConfigException
+     * @inheritDoc
      */
-    public function indexElementAttributes(ElementInterface $element, array $fieldHandles = null): bool
+    public function indexElementAttributes(ElementInterface $element, ?array $fieldHandles = null): bool
     {
         $elementsService = Elastic::$plugin->getElements();
 
@@ -75,7 +51,7 @@ class Search extends Component
         /** @var FieldInterface[] $updateFields */
         $updateFields = [];
         if ($element::hasContent() && ($fieldLayout = $element->getFieldLayout()) !== null) {
-            foreach ($fieldLayout->getFields() as $field) {
+            foreach ($fieldLayout->getCustomFields() as $field) {
                 if ($field->searchable) {
                     $updateFields[] = $field;
                 }
@@ -111,97 +87,33 @@ class Search extends Component
     }
 
     /**
-     * Indexes the field values for a given element and site.
-     *
-     * @param int $elementId The ID of the element getting indexed.
-     * @param int $siteId The site ID of the content getting indexed.
-     * @param array $fields The field values, indexed by field ID.
-     *
-     * @return bool Whether the indexing was a success.
-     * @throws SiteNotFoundException|InvalidFieldException|InvalidConfigException
-     * @deprecated in 3.4.0. Use [[indexElementAttributes()]] instead.
-     */
-    public function indexElementFields(int $elementId, int $siteId, array $fields): bool
-    {
-        $element = Craft::$app->elements->getElementById($elementId, null, $siteId);
-
-        return $this->indexElementAttributes($element, $fields);
-    }
-
-    /**
-     * Searches for elements that match the given element query.
-     *
-     * @param ElementQuery $elementQuery The element query being executed
-     *
-     * @return array The filtered list of element IDs.
-     * @throws InvalidConfigException
-     * @since 3.7.14
+     * @inheritDoc
      */
     public function searchElements(ElementQuery $elementQuery): array
     {
-        return $this->_searchElements($elementQuery, null, $elementQuery->search, $elementQuery->siteId, $elementQuery->customFields);
-    }
-
-    /**
-     * Filters a list of element IDs by a given search query.
-     *
-     * @param int[] $elementIds The list of element IDs to filter by the search query.
-     * @param string|array|SearchQuery $searchQuery The search query (either a string or a SearchQuery instance)
-     * @param bool $scoreResults Whether to order the results based on how closely they match the query. (No longer checked.)
-     * @param int|int[]|null $siteId The site ID(s) to filter by.
-     * @param bool $returnScores Whether the search scores should be included in the results. If true, results will be returned as `element ID => score`.
-     * @param FieldInterface[]|null $customFields The custom fields involved in the query.
-     *
-     * @return array The filtered list of element IDs.
-     * @throws InvalidConfigException
-     * @deprecated in 3.7.14. Use [[searchElements()]] instead.
-     */
-    public function filterElementIdsByQuery(array $elementIds, $searchQuery, bool $scoreResults = true, $siteId = null, bool $returnScores = false, ?array $customFields = null): array
-    {
-        $scoredResults = $this->_searchElements(null, $elementIds, $searchQuery, $siteId, $customFields);
-        return $returnScores ? $scoredResults : array_keys($scoredResults);
-    }
-
-    /**
-     * Filters a list of element IDs by a given search query.
-     *
-     * @param ElementQuery|null $elementQuery
-     * @param int[]|null $elementIds
-     * @param string|array|SearchQuery $searchQuery
-     * @param int|int[]|null $siteId
-     * @param FieldInterface[]|null $customFields
-     *
-     * @return array
-     * @throws InvalidConfigException
-     */
-    private function _searchElements(?ElementQuery $elementQuery, ?array $elementIds, $searchQuery, $siteId, ?array $customFields): array
-    {
-        if ($elementQuery !== null) {
-            $elementQuery = (clone $elementQuery)
-                ->search(null)
-                ->offset(null)
-                ->limit(null);
-        }
-
+        $searchQuery = $elementQuery->search;
         if (is_string($searchQuery)) {
             $searchQuery = new SearchQuery($searchQuery, Craft::$app->getConfig()->getGeneral()->defaultSearchTermOptions);
-        } else if (is_array($searchQuery)) {
-            $options = $searchQuery;
-            $searchQuery = $options['query'];
-            unset($options['query']);
+        } elseif (is_array($searchQuery)) {
+            $options = array_merge($searchQuery);
+            $searchQuery = ArrayHelper::remove($options, 'query');
             $options = array_merge(Craft::$app->getConfig()->getGeneral()->defaultSearchTermOptions, $options);
             $searchQuery = new SearchQuery($searchQuery, $options);
         }
 
-        $site = Craft::$app->getSites()->getSiteById($siteId);
+        $elementQuery = (clone $elementQuery)
+            ->search(null)
+            ->offset(null)
+            ->limit(null);
+
+        $site = Craft::$app->getSites()->getSiteById($elementQuery->siteId);
 
         // Fire a 'beforeSearch' event
         if ($this->hasEventHandlers(self::EVENT_BEFORE_SEARCH)) {
             $this->trigger(self::EVENT_BEFORE_SEARCH, new SearchEvent([
                 'elementQuery' => $elementQuery,
-                'elementIds' => $elementIds,
                 'query' => $searchQuery,
-                'siteId' => $siteId,
+                'siteId' => $elementQuery->siteId,
             ]));
         }
 
@@ -224,7 +136,7 @@ class Search extends Component
 
             // Sort found elementIds by score
             arsort($scoresByElementId);
-        } catch (BadRequest400Exception $e) {
+        } catch (BadRequest400Exception) {
             $scoresByElementId = [];
         }
 
@@ -232,9 +144,8 @@ class Search extends Component
         if ($this->hasEventHandlers(self::EVENT_AFTER_SEARCH)) {
             $this->trigger(self::EVENT_AFTER_SEARCH, new SearchEvent([
                 'elementQuery' => $elementQuery,
-                'elementIds' => array_keys($scoresByElementId),
                 'query' => $searchQuery,
-                'siteId' => $siteId,
+                'siteId' => $elementQuery->siteId,
                 'results' => array_keys($scoresByElementId),
             ]));
         }
@@ -243,11 +154,9 @@ class Search extends Component
     }
 
     /**
-     * Deletes any search indexes that belong to elements that don’t exist anymore.
-     *
-     * @since 3.2.10
+     * @inheritDoc
      */
-    public function deleteOrphanedIndexes()
+    public function deleteOrphanedIndexes(): void
     {
         Craft::$app->getQueue()->push(new DeleteOrphanedIndexes());
     }

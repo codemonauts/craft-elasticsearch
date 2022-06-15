@@ -27,7 +27,7 @@ class Elements extends Component
      * @return array|callable
      * @throws InvalidConfigException
      */
-    public function add(ElementInterface $element, Site $site, array $keywords)
+    public function add(ElementInterface $element, Site $site, array $keywords): callable|array
     {
         $fieldPrefix = Elastic::$settings->fieldPrefix;
         $indexes = Elastic::$plugin->getIndexes();
@@ -83,7 +83,7 @@ class Elements extends Component
      * @return array|callable
      * @throws InvalidConfigException
      */
-    public function search(SearchQuery $searchQuery, array $scope, Site $site)
+    public function search(SearchQuery $searchQuery, array $scope, Site $site): callable|array
     {
         $indexes = Elastic::$plugin->getIndexes();
         $settings = Elastic::$settings;
@@ -128,7 +128,7 @@ class Elements extends Component
         $fields = ['*'];
         if (is_array($settings->fieldBoosts)) {
             foreach ($settings->fieldBoosts as $field) {
-                $fields[] = $indexes->mapAttributeToField($field['handle']).'^'.$field['boost'];
+                $fields[] = $indexes->mapAttributeToField($field['handle']) . '^' . $field['boost'];
             }
         }
 
@@ -202,7 +202,7 @@ class Elements extends Component
      * @return array|callable|false
      * @throws InvalidConfigException
      */
-    public function bulkDelete(array $ids, Site $site)
+    public function bulkDelete(array $ids, Site $site): callable|bool|array
     {
         if (empty($ids)) {
             return false;

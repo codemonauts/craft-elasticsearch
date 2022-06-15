@@ -1,7 +1,7 @@
 {
   "name": "codemonauts/craft-elasticsearch",
   "description": "Replace Craft's database full-text search with Elasticsearch.",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "type": "craft-plugin",
   "keywords": [
     "craft",
@@ -23,7 +23,7 @@
     "issues": "https://github.com/codemonauts/craft-elasticsearch/issues"
   },
   "require": {
-    "craftcms/cms": "^3.6.18",
+    "craftcms/cms": "^4.0.0",
     "elasticsearch/elasticsearch": "^7.0",
     "jsq/amazon-es-php": "^0.3.0"
   },
@@ -35,9 +35,6 @@
   "extra": {
     "handle": "elastic",
     "class": "codemonauts\\elastic\\Elastic",
-    "name": "Search powered by Elasticsearch",
-    "description": "Replace Craft's database full-text search with Elasticsearch.",
-    "changelogUrl": "https://raw.githubusercontent.com/codemonauts/craft-elasticsearch/blob/main/CHANGELOG.md",
-    "documentationUrl": "https://plugins.codemonauts.com/plugins/elasticsearch/Introduction.html"
+    "name": "Search powered by Elasticsearch"
   }
 }

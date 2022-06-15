@@ -12,7 +12,7 @@ class DeleteOrphanedIndexes extends BaseJob
     /**
      * @inheritDoc
      */
-    public function execute($queue)
+    public function execute($queue): void
     {
         $sites = Craft::$app->getSites()->getAllSites();
         $elements = Elastic::$plugin->getElements();

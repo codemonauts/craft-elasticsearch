@@ -67,7 +67,7 @@ class ElementsController extends Controller
                     ]);
                     try {
                         $queue->priority($priority)->push($job);
-                    } catch (NotSupportedException $e) {
+                    } catch (NotSupportedException) {
                         $queue->push($job);
                     }
                     Console::updateProgress(++$counter, $total);

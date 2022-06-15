@@ -27,43 +27,43 @@ class Settings extends Model
     /**
      * @var string The endpoint URL to use.
      */
-    public $endpoint = '';
+    public string $endpoint = '';
 
     /**
      * @var string|null The authentication method to use. Valid values are 'aws' for IAM credentials or instance
      *                  profiles and 'basicauth' for all other realms with username and password authentication.
      */
-    public $authentication = null;
+    public ?string $authentication = null;
 
     /**
      * @var string|null The username or IAM access key.
      */
-    public $username = null;
+    public ?string $username = null;
 
     /**
      * @var string|null The password or IAM secret key.
      */
-    public $password = null;
+    public ?string $password = null;
 
     /**
      * @var string|null The AWS region the AWS OpenSearch domain is in.
      */
-    public $region = null;
+    public ?string $region = null;
 
     /**
      * @var string The index name to use. It will be prepended to every site's handle.
      */
-    public $indexName = 'craftcms';
+    public string $indexName = 'craftcms';
 
     /**
      * @var string Prefix for all field handles. It prevents collisions with reserved names.
      */
-    public $fieldPrefix = 'craft_';
+    public string $fieldPrefix = 'craft_';
 
     /**
-     * @var array Boosts for fields.
+     * @var array|null Boosts for fields.
      */
-    public $fieldBoosts = null;
+    public ?array $fieldBoosts = null;
 
     /**
      * @inheritdoc

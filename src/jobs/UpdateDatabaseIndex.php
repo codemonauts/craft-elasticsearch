@@ -11,39 +11,34 @@ class UpdateDatabaseIndex extends BaseJob
     /**
      * @var string|ElementInterface|null The type of elements to update.
      */
-    public $elementType;
+    public string|ElementInterface|null $elementType;
 
     /**
      * @var int|int[]|null The ID(s) of the element(s) to update
      */
-    public $elementId;
+    public int|array|null $elementId;
 
     /**
      * @var int|string|null The site ID of the elements to update, or `'*'` to update all sites
      */
-    public $siteId = '*';
+    public int|string|null $siteId = '*';
 
     /**
      * @inheritDoc
      */
-    public function execute($queue)
+    public function execute($queue): void
     {
         $class = $this->elementType;
         $search = Craft::$app->getSearch();
 
-        $query = $class::find()
+        $elements = $class::find()
             ->drafts(null)
             ->id($this->elementId)
             ->siteId($this->siteId)
-            ->anyStatus();
+            ->provisionalDrafts(null)
+            ->status(null)
+            ->all();
 
-        // TODO: Remove when dropping 3.6 support.
-        $craft37 = version_compare(Craft::$app->getVersion(), '3.7', '>=');
-        if ($craft37) {
-            $query->provisionalDrafts(null);
-        }
-
-        $elements = $query->all();
         $total = count($elements);
 
         foreach ($elements as $i => $element) {

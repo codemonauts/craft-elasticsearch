@@ -18,32 +18,32 @@ class Elasticsearch extends Component
     /**
      * @var string|null The authentication to use. You can use 'realm' or 'aws'.
      */
-    public $authentication;
+    public ?string $authentication;
 
     /**
      * @var string[]|null The Elasticsearch hosts to connect to.
      */
-    public $hosts;
+    public ?array $hosts;
 
     /**
      * @var string|null The username to use for authentication. Leave blank if you use AWS Elasticsearch/OpenSearch and instance profile to authenticate.
      */
-    public $username;
+    public ?string $username;
 
     /**
      * @var string|null The password to use for authentication.
      */
-    public $password;
+    public ?string $password;
 
     /**
      * @var string|null The AWS domain region.
      */
-    public $region;
+    public ?string $region;
 
     /**
      * @var Client|null The elasticsearch client.
      */
-    private $client;
+    private ?Client $client = null;
 
     /**
      * Returns the Elasticsearch client.

@@ -12,24 +12,24 @@ use DateTime;
 class ReindexUpdatedElements extends BaseJob
 {
     /**
-     * @var DateTime|null
+     * @var DateTime
      */
-    public $startDate;
+    public DateTime $startDate;
 
     /**
      * @var bool Whether to reindex elements to the database full-text index.
      */
-    public $toDatabaseIndex = false;
+    public bool $toDatabaseIndex = false;
 
     /**
      * @var bool Whether to reindex elements to the Elasticsearch index.
      */
-    public $toElasticsearchIndex = false;
+    public bool $toElasticsearchIndex = false;
 
     /**
      * @inheritDoc
      */
-    public function execute($queue)
+    public function execute($queue): void
     {
         $query = new Query();
         $query->select(['id', 'type'])

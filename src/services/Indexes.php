@@ -18,12 +18,12 @@ class Indexes extends Component
     /**
      * @var string The name to use for the indexes.
      */
-    public $indexName;
+    public string $indexName;
 
     /**
      * @var string[] Mapping of Elasticsearch field names to Craft field handles.
      */
-    private $fieldToAttribute = [];
+    private array $fieldToAttribute = [];
 
 
     // Functions to create and delete index structure for Craft's search
@@ -97,7 +97,7 @@ class Indexes extends Component
      * @return array|false
      * @throws InvalidConfigException
      */
-    public function reIndexSite(Site $site)
+    public function reIndexSite(Site $site): bool|array
     {
         $returnValue = [];
 
@@ -169,7 +169,7 @@ class Indexes extends Component
 
         try {
             $result = Elastic::$plugin->getElasticsearch()->getClient()->indices()->clone($params);
-        } catch (Exception $e) {
+        } catch (Exception) {
             $result = ['acknowledged' => false];
         }
 
@@ -305,7 +305,7 @@ class Indexes extends Component
      * @return int|string
      * @throws InvalidConfigException
      */
-    public function getCurrentIndex(Site $site)
+    public function getCurrentIndex(Site $site): int|string
     {
         return $this->getIndexOfAlias($this->getIndexName($site));
     }
@@ -318,7 +318,7 @@ class Indexes extends Component
      * @return int|string
      * @throws InvalidConfigException
      */
-    public function getIndexOfAlias(string $aliasName)
+    public function getIndexOfAlias(string $aliasName): int|string
     {
         $params = [
             'name' => $aliasName,
@@ -439,10 +439,10 @@ class Indexes extends Component
      *
      * @param Site $site The site to return the current mapping for.
      *
-     * @return array|mixed
-     * @throws InvalidConfigException
+     * @return mixed
+     * @throws \yii\base\InvalidConfigException
      */
-    public function getCurrentMapping(Site $site)
+    public function getCurrentMapping(Site $site): mixed
     {
         $currentIndex = $this->getCurrentIndex($site);
         $result = Elastic::$plugin->getElasticsearch()->getClient()->indices()->getMapping(['index' => $currentIndex]);
@@ -592,9 +592,9 @@ class Indexes extends Component
             $fieldPrefix = Elastic::$settings->fieldPrefix;
             $attributeNeedle = $fieldPrefix . 'attribute_';
             $fieldNeedle = $fieldPrefix . 'field_';
-            if (strpos($fieldName, $attributeNeedle) === 0) {
+            if (str_starts_with($fieldName, $attributeNeedle)) {
                 $this->fieldToAttribute[$fieldName] = substr($fieldName, strlen($attributeNeedle));
-            } else if (strpos($fieldName, $fieldNeedle) === 0) {
+            } else if (str_starts_with($fieldName, $fieldNeedle)) {
                 $id = (int)substr($fieldName, strlen($fieldNeedle));
                 $field = Craft::$app->getFields()->getFieldById($id);
                 if (!$field) {
@@ -644,7 +644,7 @@ class Indexes extends Component
      * @return array|callable
      * @throws InvalidConfigException
      */
-    public function source(int $elementId, Site $site)
+    public function source(int $elementId, Site $site): callable|array
     {
         $params = [
             'index' => $this->getIndexName($site),
@@ -660,7 +660,7 @@ class Indexes extends Component
      * @return array
      * @throws InvalidConfigException
      */
-    public function list()
+    public function list(): array
     {
         $aliases = Elastic::$plugin->getElasticsearch()->getClient()->cat()->aliases();
         $indexes = Elastic::$plugin->getElasticsearch()->getClient()->cat()->indices();

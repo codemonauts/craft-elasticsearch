@@ -39,9 +39,10 @@ class IndexController extends Controller
     /**
      * Outputs some stats of all or a specific indices.
      *
-     * @param string|null $siteHandle Default '*' to get stats of all sites.
+     * @param string $siteHandle Default '*' to get stats of all sites.
      *
-     * @throws SiteNotFoundException|InvalidConfigException
+     * @throws \craft\errors\SiteNotFoundException
+     * @throws \yii\base\InvalidConfigException
      */
     public function actionStats(string $siteHandle = '*')
     {
@@ -57,7 +58,7 @@ class IndexController extends Controller
                 $this->stdout('Current index in use: ' . $indexName . PHP_EOL);
                 $this->stdout('Elements in index: ' . $result['indices'][$indexName]['total']['docs']['count'] . PHP_EOL);
                 $this->stdout('Stored data: ' . Craft::$app->getFormatter()->asShortSize($result['indices'][$indexName]['total']['store']['size_in_bytes']) . PHP_EOL . PHP_EOL);
-            } catch (Missing404Exception $e) {
+            } catch (Missing404Exception) {
                 $this->stderr('Index for site "');
                 $this->stderr($site->handle, BaseConsole::FG_YELLOW);
                 $this->stderr('" not found.' . PHP_EOL);
@@ -69,9 +70,10 @@ class IndexController extends Controller
      * Outputs the source of an element in the index.
      *
      * @param int $elementId The element ID to output.
-     * @param string|null $siteHandle The site to use.
+     * @param string $siteHandle The site to use.
      *
-     * @throws SiteNotFoundException|InvalidConfigException
+     * @throws \craft\errors\SiteNotFoundException
+     * @throws \yii\base\InvalidConfigException
      */
     public function actionSource(int $elementId, string $siteHandle = '*')
     {
@@ -103,7 +105,7 @@ class IndexController extends Controller
                     $rows[] = [$indexService->mapFieldToAttribute($field), $source];
                 }
                 echo $table->setRows($rows)->run() . PHP_EOL . PHP_EOL;
-            } catch (Missing404Exception $e) {
+            } catch (Missing404Exception) {
                 $this->stdout('Element not indexed!' . PHP_EOL, BaseConsole::FG_RED);
             }
         }
@@ -174,7 +176,7 @@ class IndexController extends Controller
                 return;
             }
 
-            $timeTook = $result['took'] > 1000 ? DateTimeHelper::secondsToHumanTimeDuration(round($result['took']/1000)) : $result['took'] . 'ms';
+            $timeTook = $result['took'] > 1000 ? DateTimeHelper::secondsToHumanTimeDuration(round($result['took'] / 1000)) : $result['took'] . 'ms';
 
             $this->stdout('Old index: ' . $result['oldIndexName'] . PHP_EOL);
             $this->stdout('New index: ' . $result['newIndexName'] . PHP_EOL);
@@ -240,7 +242,7 @@ class IndexController extends Controller
         $table->setHeaders(['Alias', 'Current index']);
         $rows = [];
         foreach ($result['aliases'] as $alias) {
-            if (strpos($alias['alias'], '.') === 0) {
+            if (str_starts_with($alias['alias'], '.')) {
                 continue;
             }
             $rows[] = [
@@ -254,22 +256,15 @@ class IndexController extends Controller
         $table->setHeaders(['Health', 'Index', 'Status', 'Documents', 'Size']);
         $rows = [];
         foreach ($result['indexes'] as $index) {
-            if (strpos($index['index'], '.') === 0) {
+            if (str_starts_with($index['index'], '.')) {
                 continue;
             }
-            switch ($index['health']) {
-                case 'red':
-                    $format = [Console::FG_RED];
-                    break;
-                case 'yellow':
-                    $format = [Console::FG_YELLOW];
-                    break;
-                case 'green':
-                    $format = [Console::FG_GREEN];
-                    break;
-                default:
-                    $format = [Console::FG_GREY];
-            }
+            $format = match ($index['health']) {
+                'red' => [Console::FG_RED],
+                'yellow' => [Console::FG_YELLOW],
+                'green' => [Console::FG_GREEN],
+                default => [Console::FG_GREY],
+            };
             $rows[] = [
                 Console::ansiFormat($index['health'], $format),
                 $index['index'],
@@ -287,7 +282,7 @@ class IndexController extends Controller
      *
      * @param string|null $siteHandle
      *
-     * @return array|Site[]
+     * @return Site[]
      * @throws SiteNotFoundException
      */
     private function _getSites(string $siteHandle = null): array
