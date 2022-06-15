@@ -1,5 +1,11 @@
 # Release Notes for Elasticsearch Plugin
 
+## 1.2.0 - 2022-06-15
+
+### Added
+
+- Indexation of elements can be done without using jobs and queues.
+
 ## 1.1.0 - 2022-04-27
 
 ### Added
