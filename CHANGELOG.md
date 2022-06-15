@@ -5,6 +5,7 @@
 ### Added
 
 - Craft CMS 4 compatibility
+- Indexation of elements can be done without using jobs and queues.
 
 ### Changed
 

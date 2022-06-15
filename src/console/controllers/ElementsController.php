@@ -2,6 +2,7 @@
 
 namespace codemonauts\elastic\console\controllers;
 
+use codemonauts\elastic\Elastic;
 use codemonauts\elastic\jobs\UpdateElasticsearchIndex;
 use Craft;
 use craft\base\ElementInterface;
@@ -17,11 +18,15 @@ class ElementsController extends Controller
      * Index elements to current index.
      *
      * @param string $siteHandle The site to index. Default '*' to reindex elements of all sites.
+     * @param bool $useQueue Whether to use jobs in a queue for indexing.
      * @param string $queue The queue to use.
      * @param int $priority The queue priority to use.
+     *
+     * @throws \craft\errors\SiteNotFoundException
      */
-    public function actionIndex(string $siteHandle = '*', string $queue = 'queue', int $priority = 2048)
+    public function actionIndex(string $siteHandle = '*', bool $useQueue = true, string $queue = 'queue', int $priority = 2048)
     {
+        $search = Elastic::$plugin->getSearch();
         $queue = Craft::$app->$queue;
         $elementsTable = Table::ELEMENTS;
 
@@ -60,15 +65,29 @@ class ElementsController extends Controller
             Console::startProgress(0, $total);
             foreach ($query->batch() as $rows) {
                 foreach ($rows as $element) {
-                    $job = new UpdateElasticsearchIndex([
-                        'elementType' => $element['type'],
-                        'elementId' => $element['id'],
-                        'siteId' => $siteHandle,
-                    ]);
-                    try {
-                        $queue->priority($priority)->push($job);
-                    } catch (NotSupportedException) {
-                        $queue->push($job);
+                    if ($useQueue) {
+                        $job = new UpdateElasticsearchIndex([
+                            'elementType' => $element['type'],
+                            'elementId' => $element['id'],
+                            'siteId' => $siteHandle,
+                        ]);
+                        try {
+                            $queue->priority($priority)->push($job);
+                        } catch (NotSupportedException) {
+                            $queue->push($job);
+                        }
+                    } else {
+                        $elementsOfType = $element['type']::find()
+                            ->drafts(null)
+                            ->id($element['id'])
+                            ->siteId($siteHandle)
+                            ->status(null)
+                            ->provisionalDrafts(null)
+                            ->all();
+
+                        foreach ($elementsOfType as $e) {
+                            $search->indexElementAttributes($e);
+                        }
                     }
                     Console::updateProgress(++$counter, $total);
                 }
