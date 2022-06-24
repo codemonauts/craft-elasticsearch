@@ -97,6 +97,7 @@ class IndexController extends Controller
         $table->setHeaders([
             'Field handle',
             'Source',
+            'Analyzer',
         ]);
 
         foreach ($sites as $site) {
@@ -110,7 +111,16 @@ class IndexController extends Controller
             try {
                 $mappings = Elastic::$plugin->getIndexes()->source($elementId, $site);
                 foreach ($mappings as $field => $source) {
-                    $rows[] = [$indexService->mapFieldToAttribute($field), $source];
+                    $analyzedTokens = $indexService->analyze($source, $site);
+                    $analyzedString = '';
+                    foreach ($analyzedTokens['tokens'] as $token) {
+                        $analyzedString .= $token['token'] . ' ';
+                    }
+                    $rows[] = [
+                        $indexService->mapFieldToAttribute($field),
+                        $source,
+                        $analyzedString,
+                    ];
                 }
                 echo $table->setRows($rows)->run() . PHP_EOL . PHP_EOL;
             } catch (Missing404Exception) {

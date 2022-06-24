@@ -671,6 +671,28 @@ class Indexes extends Component
         ];
     }
 
+    /**
+     * Get the analyzer result for a text.
+     *
+     * @param string $text The text to analyze.
+     * @param Site $site The site to use.
+     *
+     * @return array
+     * @throws InvalidConfigException
+     */
+    public function analyze(string $text, Site $site): array
+    {
+        $params = [
+            'index' => $this->getIndexName($site),
+            'body' => [
+                'text' => $text,
+                'analyzer' => 'standard',
+            ],
+        ];
+
+        return Elastic::$plugin->getElasticsearch()->getClient()->indices()->analyze($params);
+    }
+
 
     // Functions for analyzer
     // =========================================================================
