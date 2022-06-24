@@ -97,6 +97,10 @@ class Elements extends Component
             if ($token instanceof SearchQueryTermGroup) {
                 // TODO: Add grouping.
             } else {
+                // Special case for pasted slugs
+                if (str_contains($token->term, '-')) {
+                    $token->phrase = true;
+                }
                 $queryString = '';
                 if ($token->subLeft && !$token->phrase) {
                     $queryString .= '*';
@@ -105,7 +109,7 @@ class Elements extends Component
                     if ($token->attribute) {
                         $queryString .= $indexes->mapAttributeToField($token->attribute) . ':';
                     }
-                    $queryString .= '"' . $token->term . '"';
+                    $queryString .= '"' . trim($token->term) . '"';
                 } else {
                     if ($token->exclude) {
                         $queryString .= '-';
@@ -115,7 +119,7 @@ class Elements extends Component
                     if ($token->attribute) {
                         $queryString .= $indexes->mapAttributeToField($token->attribute) . ':';
                     }
-                    $queryString .= $token->term;
+                    $queryString .= trim($token->term);
                 }
                 if ($token->subRight && !$token->phrase) {
                     $queryString .= '*';

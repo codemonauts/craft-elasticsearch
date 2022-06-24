@@ -12,6 +12,10 @@
 
 - The console command to list aliases and indexes return only relevant entries of the current config now. Added the option `--all` to show all available aliases and indexes again. 
 
+### Fixed
+
+- Pasted slugs now find the corresponding element.
+
 ## 2.0.0 - 2022-06-15
 
 ### Added
