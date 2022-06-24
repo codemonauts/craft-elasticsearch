@@ -260,6 +260,7 @@ class IndexController extends Controller
         $this->stdout('Aliases' . PHP_EOL);
         $table->setHeaders(['Alias', 'Current index']);
         $rows = [];
+        $activeIndexes = [];
         foreach ($result['aliases'] as $alias) {
             if (str_starts_with($alias['alias'], '.')) {
                 continue;
@@ -267,6 +268,7 @@ class IndexController extends Controller
             if (!$this->all && !str_starts_with($alias['alias'], $prefix)) {
                 continue;
             }
+            $activeIndexes[] = $alias['index'];
             $rows[] = [
                 $alias['alias'],
                 $alias['index'],
@@ -275,7 +277,11 @@ class IndexController extends Controller
         echo $table->setRows($rows)->run() . PHP_EOL;
 
         $this->stdout('Indexes' . PHP_EOL);
-        $table->setHeaders(['Health', 'Index', 'Status', 'Documents', 'Size']);
+        $header = ['Health', 'Index', 'Status', 'Documents', 'Size'];
+        if (!$this->all) {
+            $header[] = 'Orphaned';
+        }
+        $table->setHeaders($header);
         $rows = [];
         foreach ($result['indexes'] as $index) {
             if (str_starts_with($index['index'], '.')) {
@@ -284,19 +290,30 @@ class IndexController extends Controller
             if (!$this->all && !str_starts_with($index['index'], $prefix)) {
                 continue;
             }
+            if (!$this->all) {
+                if (!in_array($index['index'], $activeIndexes)) {
+                    $index['orphaned'] = 'yes';
+                } else {
+                    $index['orphaned'] = '';
+                }
+            }
             $format = match ($index['health']) {
                 'red' => [Console::FG_RED],
                 'yellow' => [Console::FG_YELLOW],
                 'green' => [Console::FG_GREEN],
                 default => [Console::FG_GREY],
             };
-            $rows[] = [
+            $row = [
                 Console::ansiFormat($index['health'], $format),
                 $index['index'],
                 $index['status'],
                 $index['docs.count'],
                 $index['store.size'],
             ];
+            if (!$this->all) {
+                $row[] = $index['orphaned'];
+            }
+            $rows[] = $row;
         }
         echo $table->setRows($rows)->run();
     }

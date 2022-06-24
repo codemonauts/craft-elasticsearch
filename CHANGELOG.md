@@ -5,6 +5,7 @@
 ### Added
 
 - Output the source alias and index when cloning an index.
+- The console command to list aliases and indexes indicates whether an index is orphaned.
 
 ### Changed
 
