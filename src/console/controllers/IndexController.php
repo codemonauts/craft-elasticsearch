@@ -24,6 +24,11 @@ class IndexController extends Controller
     public bool $orphanedOnly = false;
 
     /**
+     * @var bool Whether to show all and not only those relevant for this configuration.
+     */
+    public bool $all = false;
+
+    /**
      * @inheritdoc
      */
     public function options($actionID): array
@@ -32,6 +37,9 @@ class IndexController extends Controller
 
         if ($actionID === 'delete') {
             $options[] = 'orphanedOnly';
+        }
+        if ($actionID === 'list') {
+            $options[] = 'all';
         }
         return $options;
     }
@@ -219,6 +227,16 @@ class IndexController extends Controller
                 $indexService->deleteIndexOfSite($site);
             }
 
+            $realIndex = $indexService->getIndexOfAlias($sourceIndexName);
+
+            $this->stdout('Cloning index ');
+            $this->stdout($sourceIndexName, BaseConsole::FG_YELLOW);
+            $this->stdout(' (alias of ');
+            $this->stdout($realIndex, BaseConsole::FG_YELLOW);
+            $this->stdout(') to ');
+            $this->stdout($destIndexName, BaseConsole::FG_YELLOW);
+            $this->stdout('...' . PHP_EOL);
+
             $result = $indexService->cloneToSite($site, $sourceIndexName);
 
             if (!$result) {
@@ -235,6 +253,7 @@ class IndexController extends Controller
     public function actionList()
     {
         $indexService = Elastic::$plugin->getIndexes();
+        $prefix = Elastic::$settings->indexName;
         $result = $indexService->list();
         $table = new Table();
 
@@ -243,6 +262,9 @@ class IndexController extends Controller
         $rows = [];
         foreach ($result['aliases'] as $alias) {
             if (str_starts_with($alias['alias'], '.')) {
+                continue;
+            }
+            if (!$this->all && !str_starts_with($alias['alias'], $prefix)) {
                 continue;
             }
             $rows[] = [
@@ -257,6 +279,9 @@ class IndexController extends Controller
         $rows = [];
         foreach ($result['indexes'] as $index) {
             if (str_starts_with($index['index'], '.')) {
+                continue;
+            }
+            if (!$this->all && !str_starts_with($index['index'], $prefix)) {
                 continue;
             }
             $format = match ($index['health']) {

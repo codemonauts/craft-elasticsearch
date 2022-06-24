@@ -1,5 +1,15 @@
 # Release Notes for Elasticsearch Plugin
 
+## Unreleased
+
+### Added
+
+- Output the source alias and index when cloning an index.
+
+### Changed
+
+- The console command to list aliases and indexes return only relevant entries of the current config now. Added the option `--all` to show all available aliases and indexes again. 
+
 ## 2.0.0 - 2022-06-15
 
 ### Added

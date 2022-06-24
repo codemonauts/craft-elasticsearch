@@ -378,7 +378,7 @@ class Indexes extends Component
     }
 
     /**
-     * Diesables writing to the given index.
+     * Disables writing to the given index.
      *
      * @param string $indexName The name of the indes to disable writing.
      *
