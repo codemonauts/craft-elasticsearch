@@ -7,6 +7,7 @@
 - Output the source alias and index when cloning an index.
 - The console command to list aliases and indexes indicates whether an index is orphaned.
 - The console command to show the source of an element outputs the analyzer result as well.
+- Event to manipulate the search parameters before querying Elasticsearch.
 
 ### Changed
 

@@ -3,6 +3,7 @@
 namespace codemonauts\elastic\services;
 
 use codemonauts\elastic\Elastic;
+use codemonauts\elastic\events\BeforeQueryEvent;
 use craft\base\Component;
 use craft\base\ElementInterface;
 use craft\models\Site;
@@ -17,6 +18,11 @@ use yii\base\InvalidConfigException;
  */
 class Elements extends Component
 {
+    /**
+     * @event BeforeQueryEvent The event that is triggered before the query is sent to ELasticsearch.
+     */
+    public const EVENT_BEFORE_QUERY = 'beforeQuery';
+
     /**
      * Adds the keywords of an element to the Elasticsearch index of a site.
      *
@@ -161,6 +167,13 @@ class Elements extends Component
                 ],
             ];
         }
+
+        // Allow plugins to modify the query parameters
+        $event = new BeforeQueryEvent([
+            'params' => $params,
+        ]);
+        $this->trigger(self::EVENT_BEFORE_QUERY, $event);
+        $params = $event->params;
 
         return Elastic::$plugin->getElasticsearch()->getClient()->search($params);
     }
