@@ -461,15 +461,21 @@ class Indexes extends Component
         $mapping = [];
 
         $predefinedAttributes = [
-            'title',
-            'slug',
-        ];
-
-        foreach ($predefinedAttributes as $attribute) {
-            $mapping[$fieldPrefix . 'attribute_' . $attribute] = [
+            'title' => [
                 'type' => 'text',
                 'analyzer' => 'standard',
-            ];
+            ],
+            'slug' => [
+                'type' => 'text',
+                'analyzer' => 'standard',
+            ],
+            'postDate' => [
+                'type' => 'date',
+            ],
+        ];
+
+        foreach ($predefinedAttributes as $attribute => $config) {
+            $mapping[$fieldPrefix . 'attribute_' . $attribute] = $config;
         }
 
         /**

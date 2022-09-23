@@ -71,6 +71,10 @@ class Search extends CraftSearch
             $keywords['attribute_' . $attribute] = $element->getSearchKeywords($attribute);
         }
 
+        if(isset($element->postDate) && $element->postDate instanceof \DateTime) {
+            $keywords['attribute_postDate'] = $element->postDate->format(\DateTime::ATOM);
+        }
+
         // Update the custom fields' keywords
         foreach ($updateFields as $field) {
             $fieldValue = $element->getFieldValue($field->handle);
