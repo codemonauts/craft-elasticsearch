@@ -1,5 +1,10 @@
 # Release Notes for Elasticsearch Plugin
 
+## Unreleased
+
+### Added
+- Event to manipulate the search parameters before querying Elasticsearch.
+
 ## 1.2.0 - 2022-06-15
 
 ### Added
