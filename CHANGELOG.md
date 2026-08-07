@@ -8,6 +8,7 @@
 - The console command to list aliases and indexes indicates whether an index is orphaned.
 - The console command to show the source of an element outputs the analyzer result as well.
 - Event to manipulate the search parameters before querying Elasticsearch.
+- Console command `elastic/index/query` to run a search query against an index and output the raw Elasticsearch response with per-hit score explanations (`explain: true`). Takes a search string and an optional result limit.
 
 ### Changed
 

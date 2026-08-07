@@ -7,6 +7,8 @@ use codemonauts\elastic\services\Indexes;
 use craft\helpers\Console;
 use craft\helpers\DateTimeHelper;
 use craft\models\Site;
+use craft\search\SearchQuery;
+use yii\console\ExitCode;
 use Elasticsearch\Common\Exceptions\Missing404Exception;
 use yii\base\InvalidConfigException;
 use yii\console\Controller;
@@ -336,6 +338,29 @@ class IndexController extends Controller
             $rows[] = $row;
         }
         echo $table->setRows($rows)->run();
+    }
+
+    /**
+     * Runs a search query against the primary site's index and outputs the raw Elasticsearch
+     * response, including the score explanation (explain: true) for every hit. The query is
+     * matched against all indexed Craft content.
+     *
+     * @param string $query The search string.
+     * @param int|null $limit Optional maximum number of results to return.
+     *
+     * @return int
+     * @throws InvalidConfigException
+     */
+    public function actionQuery(string $query, int $limit = null): int
+    {
+        $site = Craft::$app->getSites()->getPrimarySite();
+        $searchQuery = new SearchQuery($query, Craft::$app->getConfig()->getGeneral()->defaultSearchTermOptions);
+
+        $result = Elastic::$plugin->getElements()->search($searchQuery, [], $site, true, $limit);
+
+        $this->stdout(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL);
+
+        return ExitCode::OK;
     }
 
     /**
