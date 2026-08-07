@@ -14,7 +14,6 @@ use Elasticsearch\Common\Exceptions\Missing404Exception;
 use yii\base\InvalidConfigException;
 use yii\console\ExitCode;
 use yii\console\widgets\Table;
-use yii\helpers\BaseConsole;
 
 class IndexController extends BaseController
 {
@@ -63,14 +62,14 @@ class IndexController extends BaseController
                 $indexName = $indexes->getCurrentIndex($site);
                 $result = $indexes->stats($site);
                 $this->stdout('Index stats of site "');
-                $this->stdout($site->handle, BaseConsole::FG_YELLOW);
+                $this->stdout($site->handle, Console::FG_YELLOW);
                 $this->stdout('":' . PHP_EOL);
                 $this->stdout('Current index in use: ' . $indexName . PHP_EOL);
                 $this->stdout('Elements in index: ' . $result['indices'][$indexName]['total']['docs']['count'] . PHP_EOL);
                 $this->stdout('Stored data: ' . Craft::$app->getFormatter()->asShortSize($result['indices'][$indexName]['total']['store']['size_in_bytes']) . PHP_EOL . PHP_EOL);
             } catch (Missing404Exception) {
                 $this->stderr('Index for site "');
-                $this->stderr($site->handle, BaseConsole::FG_YELLOW);
+                $this->stderr($site->handle, Console::FG_YELLOW);
                 $this->stderr('" not found.' . PHP_EOL);
             }
         }
@@ -89,11 +88,11 @@ class IndexController extends BaseController
     {
         $element = Craft::$app->getElements()->getElementById($elementId);
         if (!$element) {
-            $this->stderr("Element with ID $elementId not found!" . PHP_EOL, BaseConsole::FG_RED);
+            $this->stderr("Element with ID $elementId not found!" . PHP_EOL, Console::FG_RED);
             return;
         }
 
-        $indexService = Elastic::$plugin->getIndexes();
+        $indexes = Elastic::$plugin->getIndexes();
         $sites = $this->_getSites($siteHandle);
         $table = new Table();
         $table->setHeaders([
@@ -106,27 +105,27 @@ class IndexController extends BaseController
             $element = Craft::$app->getElements()->getElementById($elementId, null, $site->id);
             $rows = [];
             $this->stdout('Index source of element "');
-            $this->stdout($element, BaseConsole::FG_YELLOW);
+            $this->stdout($element, Console::FG_YELLOW);
             $this->stdout('" for site "');
-            $this->stdout($site->handle, BaseConsole::FG_YELLOW);
+            $this->stdout($site->handle, Console::FG_YELLOW);
             $this->stdout('":' . PHP_EOL);
             try {
-                $mappings = Elastic::$plugin->getIndexes()->source($elementId, $site);
+                $mappings = $indexes->source($elementId, $site);
                 foreach ($mappings as $field => $source) {
-                    $analyzedTokens = $indexService->analyze($source, $site);
+                    $analyzedTokens = $indexes->analyze($source, $site);
                     $analyzedString = '';
                     foreach ($analyzedTokens['tokens'] as $token) {
                         $analyzedString .= $token['token'] . ' ';
                     }
                     $rows[] = [
-                        $indexService->mapFieldToAttribute($field),
+                        $indexes->mapFieldToAttribute($field),
                         $source,
                         $analyzedString,
                     ];
                 }
                 echo $table->setRows($rows)->run() . PHP_EOL . PHP_EOL;
             } catch (Missing404Exception) {
-                $this->stdout('Element not indexed!' . PHP_EOL, BaseConsole::FG_RED);
+                $this->stdout('Element not indexed!' . PHP_EOL, Console::FG_RED);
             }
         }
     }
@@ -168,13 +167,13 @@ class IndexController extends BaseController
      */
     public function actionReindex(string $siteHandle = null)
     {
-        $indexService = Elastic::$plugin->getIndexes();
+        $indexes = Elastic::$plugin->getIndexes();
         $this->printDriftNotice();
         $sites = $this->_getSites($siteHandle);
         $hint = false;
 
         foreach ($sites as $site) {
-            $currentIndex = $indexService->getCurrentIndex($site);
+            $currentIndex = $indexes->getCurrentIndex($site);
 
             if (!$this->confirm('Do you want to reindex the source of the current index "' . $currentIndex . '" for the site with the handle "' . $site->handle . '" to a new index?')) {
                 continue;
@@ -186,13 +185,13 @@ class IndexController extends BaseController
             }
 
             $this->stdout('Reindexing index for site "');
-            $this->stdout($site->handle, BaseConsole::FG_YELLOW);
+            $this->stdout($site->handle, Console::FG_YELLOW);
             $this->stdout('":' . PHP_EOL);
 
-            $result = Elastic::$plugin->getIndexes()->reIndexSite($site);
+            $result = $indexes->reIndexSite($site);
 
             if ($result === false) {
-                $this->stderr('Error when reindexing.', BaseConsole::FG_RED);
+                $this->stderr('Error when reindexing.', Console::FG_RED);
                 return;
             }
 
@@ -216,39 +215,39 @@ class IndexController extends BaseController
      */
     public function actionClone(string $sourceIndexName, string $siteHandle)
     {
-        $indexService = Elastic::$plugin->getIndexes();
+        $indexes = Elastic::$plugin->getIndexes();
         $sites = $this->_getSites($siteHandle);
 
         foreach ($sites as $site) {
-            $sourceExists = $indexService->aliasExists($sourceIndexName);
+            $sourceExists = $indexes->aliasExists($sourceIndexName);
 
             if (!$sourceExists) {
                 $this->stderr('Source index named "' . $sourceIndexName . '" for site with the handle "' . $site->handle . '" not found.');
                 continue;
             }
 
-            $destIndexName = $indexService->getIndexName($site);
-            $destExists = $indexService->aliasExists($destIndexName);
+            $destIndexName = $indexes->getIndexName($site);
+            $destExists = $indexes->aliasExists($destIndexName);
 
             if ($destExists) {
                 if (!$this->confirm('The destination index "' . $destIndexName . '" exists. Do you want to replace this index?')) {
                     continue;
                 }
 
-                $indexService->deleteIndexOfSite($site);
+                $indexes->deleteIndexOfSite($site);
             }
 
-            $realIndex = $indexService->getIndexOfAlias($sourceIndexName);
+            $realIndex = $indexes->getIndexOfAlias($sourceIndexName);
 
             $this->stdout('Cloning index ');
-            $this->stdout($sourceIndexName, BaseConsole::FG_YELLOW);
+            $this->stdout($sourceIndexName, Console::FG_YELLOW);
             $this->stdout(' (alias of ');
-            $this->stdout($realIndex, BaseConsole::FG_YELLOW);
+            $this->stdout($realIndex, Console::FG_YELLOW);
             $this->stdout(') to ');
-            $this->stdout($destIndexName, BaseConsole::FG_YELLOW);
+            $this->stdout($destIndexName, Console::FG_YELLOW);
             $this->stdout('...' . PHP_EOL);
 
-            $result = $indexService->cloneToSite($site, $sourceIndexName);
+            $result = $indexes->cloneToSite($site, $sourceIndexName);
 
             if (!$result) {
                 $this->stderr('Error creating clone.');
@@ -263,15 +262,15 @@ class IndexController extends BaseController
      */
     public function actionList()
     {
-        $indexService = Elastic::$plugin->getIndexes();
+        $indexes = Elastic::$plugin->getIndexes();
         $prefix = Elastic::$settings->indexName;
-        $result = $indexService->list();
+        $result = $indexes->list();
         $table = new Table();
 
         // Map the drift status by alias so we can annotate each alias row (one cluster call,
         // cached). Returns [] silently if the cluster can't be reached.
         $drift = [];
-        foreach ($indexService->detectMappingDrift() as $d) {
+        foreach ($indexes->detectMappingDrift() as $d) {
             $drift[$d['alias']] = $d;
         }
 
@@ -403,7 +402,7 @@ class IndexController extends BaseController
                     . 'Reindexing will stamp the current schema.';
             }
 
-            $this->stdout($message . PHP_EOL, BaseConsole::FG_YELLOW);
+            $this->stdout($message . PHP_EOL, Console::FG_YELLOW);
         }
     }
 

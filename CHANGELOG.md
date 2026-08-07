@@ -31,6 +31,7 @@
 - Pasted slugs now find the corresponding element.
 - Mapping updates no longer fail with an HTTP 400 `illegal_argument_exception` on indexes created by an earlier version. Field mappings no longer send an `analyzer` parameter, which the cluster treats as "leave unchanged" rather than an (illegal) change to an existing field's analyzer.
 - Elasticsearch console commands now fail with a clear "no endpoint configured" message and a non-zero exit code instead of an opaque "Unknown component ID: indexes" error when no endpoint is set.
+- Fixed a typo in the `elastic/migration/truncate-table` command output.
 
 ## 2.0.0 - 2022-06-15
 

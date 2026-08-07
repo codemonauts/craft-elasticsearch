@@ -55,7 +55,7 @@ class MigrationController extends BaseController
 
         $this->backup();
 
-        $this->stdout('Tuncating searchindex...' . PHP_EOL);
+        $this->stdout('Truncating searchindex...' . PHP_EOL);
 
         try {
             Craft::$app->getDb()->createCommand()->truncateTable(Table::SEARCHINDEX)->execute();
