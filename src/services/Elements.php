@@ -85,11 +85,13 @@ class Elements extends Component
      * @param SearchQuery $searchQuery The search query to use.
      * @param array $scope The list of IDs to include in results.
      * @param Site $site The site to search in.
+     * @param bool $explain Whether to ask Elasticsearch to include the score explanation per hit.
+     * @param int|null $size Maximum number of results to return. Defaults to 10000.
      *
      * @return array|callable
      * @throws InvalidConfigException
      */
-    public function search(SearchQuery $searchQuery, array $scope, Site $site): callable|array
+    public function search(SearchQuery $searchQuery, array $scope, Site $site, bool $explain = false, ?int $size = null): callable|array
     {
         $indexes = Elastic::$plugin->getIndexes();
         $settings = Elastic::$settings;
@@ -145,7 +147,7 @@ class Elements extends Component
         $params = [
             'index' => $indexes->getIndexName($site),
             'body' => [
-                'size' => 10000,
+                'size' => $size ?? 10000,
                 'query' => [
                     'bool' => [
                         'must' => [
@@ -158,6 +160,11 @@ class Elements extends Component
                 ],
             ],
         ];
+
+        // Ask the cluster to return the score explanation for every hit.
+        if ($explain) {
+            $params['body']['explain'] = true;
+        }
 
         // Add optional scope of IDs
         if (count($scope)) {
