@@ -35,6 +35,7 @@
 - Search scoring is now built from Craft's per-term flags (exact, phrase, sub-word, exclude, attribute) as distinct query clauses instead of a single wildcard `query_string`. Results are ranked by relevance — an exact whole-value match ranks highest — rather than every hit scoring `1`, and OR groups and term exclusion are now handled. Result sets for plain terms are unchanged (only the ordering changes); terms using an exact/attribute flag or a leading `*` may return fewer, more correct results than before. The exact tier requires a rebuilt index.
 - The `authentication` connection setting can now be overridden with an environment variable (resolved at runtime, like the other connection settings). Its settings-page field is now an autosuggest input offering the known methods (`none`, `basicauth`, `aws`) and environment variables, replacing the fixed dropdown.
 - The plugin settings page is now organised into General, Boosting and Scoring tabs. The former "Tuning" section is now labelled "Boosting".
+- Every text field now copies into two catch-all fields, and searches match those instead of a wildcard over all fields, which keeps the number of query clauses independent of how many searchable fields exist. Existing indexes are reported as `outdated` by drift detection and keep being queried field by field until they are rebuilt — their documents carry no catch-all content, so they would otherwise stop returning results. Relevance may shift slightly after a rebuild, because scores are computed on the combined content rather than per field; configured field boosts and per-field scoring weights still apply as separate clauses, and attribute-scoped searches (`title:foo`, `title::foo`) are unaffected.
 
 ### Fixed
 
@@ -51,6 +52,7 @@
 - `elastic/elements/index` no longer counts and queues elements that never end up in the index. The count included every revision, draft, soft-deleted and archived row of the elements table, so it reported far more elements than were indexed and pushed hundreds of thousands of jobs that indexed nothing.
 - `elastic/elements/index` now resolves the site handle to a site ID. The handle was passed to the element query as-is, which silently matched no elements at all, so indexing a single site indexed nothing.
 - Drafts are no longer written to the index by `elastic/elements/index`. The after-save handler always skipped them, so the console command put content into the index that the regular indexing path never writes.
+- Searches with more than one term no longer fail with `too_many_nested_clauses` on installations with many searchable fields. The query matched fields through a wildcard, which Elasticsearch expands to one clause per field (two, counting the `.exact` subfields), so the clause count grew with the number of fields and exceeded Lucene's limit of 1024 — with around 120 searchable fields a two-term search was already over it.
 
 ## 2.0.0 - 2022-06-15
 
