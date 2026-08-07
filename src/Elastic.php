@@ -22,6 +22,7 @@ use craft\helpers\UrlHelper;
 use craft\services\Elements;
 use craft\services\Fields;
 use craft\services\Utilities;
+use craft\web\Controller;
 
 /**
  * @property Elasticsearch $elasticsearch
@@ -181,12 +182,16 @@ class Elastic extends Plugin
     /**
      * @inheritDoc
      */
-    protected function settingsHtml(): ?string
+    public function getSettingsResponse(): mixed
     {
         /** @var Settings $settings */
         $settings = $this->getSettings();
 
-        return Craft::$app->getView()->renderTemplate('elastic/settings', [
+        /** @var Controller $controller */
+        $controller = Craft::$app->controller;
+
+        return $controller->renderTemplate('elastic/settings', [
+                'plugin' => $this,
                 'settings' => $settings,
                 'authenticationSuggestions' => [
                     [

@@ -1,147 +1,186 @@
+{% requireAdmin %}
+
+{% extends "_layouts/cp" %}
 {% import "_includes/forms" as forms %}
 
-<h2>Settings for the search index</h2>
+{% set title = plugin.name %}
+{% set docTitle = title ~ ' - ' ~ "Plugins"|t('app') %}
+{% set fullPageForm = true %}
 
-{{ forms.lightswitchField({
-    label: "Transition"|t("elastic"),
-    id: 'transition',
-    name: 'transition',
-    instructions: "When enabled, both, the Craft internal search index and the new Elasticsearch index will be updated. But only the Craft internal search index will be used for searching."|t("elastic"),
-    on: settings.transition,
-    reverseToggle: "modeOff",
-    toggle: "modeOn"
-}) }}
+{% set crumbs = [
+    { label: "Settings"|t('app'), url: url('settings') },
+    { label: "Plugins"|t('app'), url: url('settings/plugins') }
+] %}
 
-{% if settings.lastMode %}
-<div id="modeOff" class="readable hidden">
-    <blockquote class="note warning">
-        <p>Deactivate the transition mode only if you are sure that you have re-indexed all existing elements to the Elastisearch index. From then on, only the Elasticsearch index will be used and the database index will become outdated.</p>
-        <p>You can switch back to transition mode at any time.</p>
-        <p><a href="https://plugins.codemonauts.com/plugins/elasticsearch/Migration.html">Check the documentation</a></p>
-    </blockquote>
-</div>
-{% endif %}
+{% set formActions = [
+    {
+        label: 'Save and continue editing'|t('app'),
+        redirect: "settings/plugins/#{plugin.handle}"|hash,
+        shortcut: true,
+        retainScroll: true,
+    },
+] %}
 
-{% if not settings.lastMode %}
-<div id="modeOn" class="readable hidden">
-    <blockquote class="note tip">
-        <p>When you reactivate the transition mode, all new and updated elements since the last deactivation ({{ settings.lastSwitch|datetime('short') }}) are automatically re-indexed. This will get the outdated database index up to date.</p>
-        <p><a href="https://plugins.codemonauts.com/plugins/elasticsearch/Migration.html">Check the documentation</a></p>
-    </blockquote>
-</div>
-{% endif %}
+{% set tabs = {
+    general: { label: "General"|t("elastic"), url: '#general' },
+    boosting: { label: "Boosting"|t("elastic"), url: '#boosting' },
+    scoring: { label: "Scoring"|t("elastic"), url: '#scoring' },
+} %}
 
-{{ forms.autosuggestField({
-    label: "Endpoint"|t("elastic"),
-    id: 'endpoint',
-    name: 'endpoint',
-    instructions: "The endpoint URL of your elasticsearch server or cluster."|t("elastic"),
-    value: settings.endpoint,
-    suggestEnvVars: true,
-    placeholder: 'https://...',
-    type: 'text',
-    errors: settings.getErrors('endpoint'),
-    required: true
-}) }}
+{% block content %}
+    {{ actionInput('plugins/save-plugin-settings') }}
+    {{ hiddenInput('pluginHandle', plugin.handle) }}
+    {{ redirectInput('settings') }}
 
-{{ forms.autosuggestField({
-    label: "Authentication"|t("elastic"),
-    id: 'authentication',
-    name: 'authentication',
-    instructions: "The authentication method to use. Choose 'none' for an endpoint without authentication (e.g. a local OpenSearch). Can be overridden with an environment variable."|t("elastic"),
-    value: settings.authentication,
-    suggestions: authenticationSuggestions,
-    suggestEnvVars: true,
-    errors: settings.getErrors('authentication'),
-    required: true
-}) }}
+    <div id="general">
+        {% namespace 'settings' %}
+            {{ forms.lightswitchField({
+                label: "Transition"|t("elastic"),
+                id: 'transition',
+                name: 'transition',
+                instructions: "When enabled, both, the Craft internal search index and the new Elasticsearch index will be updated. But only the Craft internal search index will be used for searching."|t("elastic"),
+                on: settings.transition,
+                reverseToggle: "modeOff",
+                toggle: "modeOn"
+            }) }}
 
-{{ forms.autosuggestField({
-    label: "Username"|t("elastic"),
-    id: 'username',
-    name: 'username',
-    instructions: "The username to user for authentication."|t("elastic"),
-    value: settings.username,
-    suggestEnvVars: true,
-    type: 'text',
-    required: false
-}) }}
+            {% if settings.lastMode %}
+            <div id="modeOff" class="readable hidden">
+                <blockquote class="note warning">
+                    <p>Deactivate the transition mode only if you are sure that you have re-indexed all existing elements to the Elastisearch index. From then on, only the Elasticsearch index will be used and the database index will become outdated.</p>
+                    <p>You can switch back to transition mode at any time.</p>
+                    <p><a href="https://plugins.codemonauts.com/plugins/elasticsearch/Migration.html">Check the documentation</a></p>
+                </blockquote>
+            </div>
+            {% endif %}
 
-{{ forms.autosuggestField({
-    label: "Password"|t("elastic"),
-    id: 'password',
-    name: 'password',
-    instructions: "The password to use for authentication."|t("elastic"),
-    value: settings.password,
-    suggestEnvVars: true,
-    type: 'text',
-    required: false
-}) }}
+            {% if not settings.lastMode %}
+            <div id="modeOn" class="readable hidden">
+                <blockquote class="note tip">
+                    <p>When you reactivate the transition mode, all new and updated elements since the last deactivation ({{ settings.lastSwitch|datetime('short') }}) are automatically re-indexed. This will get the outdated database index up to date.</p>
+                    <p><a href="https://plugins.codemonauts.com/plugins/elasticsearch/Migration.html">Check the documentation</a></p>
+                </blockquote>
+            </div>
+            {% endif %}
 
-{{ forms.autosuggestField({
-    label: "AWS Region"|t("elastic"),
-    id: 'region',
-    name: 'region',
-    instructions: "The AWS region the domain endpoint is in."|t("elastic"),
-    value: settings.region,
-    suggestEnvVars: true,
-    type: 'text',
-    errors: settings.getErrors('region'),
-    required: false
-}) }}
+            {{ forms.autosuggestField({
+                label: "Endpoint"|t("elastic"),
+                id: 'endpoint',
+                name: 'endpoint',
+                instructions: "The endpoint URL of your elasticsearch server or cluster."|t("elastic"),
+                value: settings.endpoint,
+                suggestEnvVars: true,
+                placeholder: 'https://...',
+                type: 'text',
+                errors: settings.getErrors('endpoint'),
+                required: true
+            }) }}
 
-{{ forms.autosuggestField({
-    label: "Index name"|t("elastic"),
-    id: 'indexName',
-    name: 'indexName',
-    instructions: "The name of the index to use. It will be prepended to every site's handle."|t("elastic"),
-    value: settings.indexName,
-    suggestEnvVars: true,
-    type: 'text',
-    errors: settings.getErrors('indexName'),
-    required: true
-}) }}
+            {{ forms.autosuggestField({
+                label: "Authentication"|t("elastic"),
+                id: 'authentication',
+                name: 'authentication',
+                instructions: "The authentication method to use. Choose 'none' for an endpoint without authentication (e.g. a local OpenSearch). Can be overridden with an environment variable."|t("elastic"),
+                value: settings.authentication,
+                suggestions: authenticationSuggestions,
+                suggestEnvVars: true,
+                errors: settings.getErrors('authentication'),
+                required: true
+            }) }}
 
-{{ forms.autosuggestField({
-    label: "Field prefix"|t("elastic"),
-    id: 'fieldPrefix',
-    name: 'fieldPrefix',
-    instructions: "Prefix for all field handles in the index."|t("elastic"),
-    value: settings.fieldPrefix,
-    suggestEnvVars: true,
-    type: 'text',
-    errors: settings.getErrors('fieldPrefix'),
-    required: true
-}) }}
+            {{ forms.autosuggestField({
+                label: "Username"|t("elastic"),
+                id: 'username',
+                name: 'username',
+                instructions: "The username to user for authentication."|t("elastic"),
+                value: settings.username,
+                suggestEnvVars: true,
+                type: 'text',
+                required: false
+            }) }}
 
-<h2>Tuning</h2>
+            {{ forms.autosuggestField({
+                label: "Password"|t("elastic"),
+                id: 'password',
+                name: 'password',
+                instructions: "The password to use for authentication."|t("elastic"),
+                value: settings.password,
+                suggestEnvVars: true,
+                type: 'text',
+                required: false
+            }) }}
 
-{{ forms.editableTableField({
-    first: true,
-    label: "Field boosting"|t("elastic"),
-    instructions: 'Add boosts to attributes or field handles.'|t("elastic"),
-    id: 'fieldBoosts',
-    name: 'fieldBoosts',
-    cols: boostsCols,
-    rows: settings.fieldBoosts,
-    errors: settings.getErrors('fieldBoosts'),
-    allowAdd: true,
-    allowReorder: true,
-    allowDelete: true
-}) }}
+            {{ forms.autosuggestField({
+                label: "AWS Region"|t("elastic"),
+                id: 'region',
+                name: 'region',
+                instructions: "The AWS region the domain endpoint is in."|t("elastic"),
+                value: settings.region,
+                suggestEnvVars: true,
+                type: 'text',
+                errors: settings.getErrors('region'),
+                required: false
+            }) }}
 
-<h2>{{ "Scoring"|t("elastic") }}</h2>
+            {{ forms.autosuggestField({
+                label: "Index name"|t("elastic"),
+                id: 'indexName',
+                name: 'indexName',
+                instructions: "The name of the index to use. It will be prepended to every site's handle."|t("elastic"),
+                value: settings.indexName,
+                suggestEnvVars: true,
+                type: 'text',
+                errors: settings.getErrors('indexName'),
+                required: true
+            }) }}
 
-<p class="light">{{ "Relative weight of each match tier when ranking results. Higher weights rank that kind of match higher; set 0 to disable a tier. Which tiers apply to a search is decided by the search term itself, not by these weights. Weights multiply with any field boosts above; per-field weight overrides can be set in config/elastic.php."|t("elastic") }}</p>
+            {{ forms.autosuggestField({
+                label: "Field prefix"|t("elastic"),
+                id: 'fieldPrefix',
+                name: 'fieldPrefix',
+                instructions: "Prefix for all field handles in the index."|t("elastic"),
+                value: settings.fieldPrefix,
+                suggestEnvVars: true,
+                type: 'text',
+                errors: settings.getErrors('fieldPrefix'),
+                required: true
+            }) }}
+        {% endnamespace %}
+    </div>
 
-{% for tier, weight in scoringWeights %}
-    {{ forms.textField({
-        label: tier|capitalize,
-        instructions: scoringHints[tier] ?? null,
-        id: 'scoring-default-' ~ tier,
-        name: 'scoring[default][' ~ tier ~ ']',
-        value: weight,
-        type: 'number',
-        size: 5
-    }) }}
-{% endfor %}
+    <div id="boosting" class="hidden">
+        {% namespace 'settings' %}
+            {{ forms.editableTableField({
+                first: true,
+                label: "Field boosting"|t("elastic"),
+                instructions: 'Add boosts to attributes or field handles.'|t("elastic"),
+                id: 'fieldBoosts',
+                name: 'fieldBoosts',
+                cols: boostsCols,
+                rows: settings.fieldBoosts,
+                errors: settings.getErrors('fieldBoosts'),
+                allowAdd: true,
+                allowReorder: true,
+                allowDelete: true
+            }) }}
+        {% endnamespace %}
+    </div>
+
+    <div id="scoring" class="hidden">
+        <p class="light">{{ "Relative weight of each match tier when ranking results. Higher weights rank that kind of match higher; set 0 to disable a tier. Which tiers apply to a search is decided by the search term itself, not by these weights. Weights multiply with any field boosts above; per-field weight overrides can be set in config/elastic.php."|t("elastic") }}</p>
+
+        {% namespace 'settings' %}
+            {% for tier, weight in scoringWeights %}
+                {{ forms.textField({
+                    label: tier|capitalize,
+                    instructions: scoringHints[tier] ?? null,
+                    id: 'scoring-default-' ~ tier,
+                    name: 'scoring[default][' ~ tier ~ ']',
+                    value: weight,
+                    type: 'number',
+                    size: 5
+                }) }}
+            {% endfor %}
+        {% endnamespace %}
+    </div>
+{% endblock %}
