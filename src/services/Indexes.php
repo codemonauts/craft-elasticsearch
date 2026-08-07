@@ -600,7 +600,6 @@ class Indexes extends Component
         foreach ($predefinedAttributes as $attribute) {
             $mapping[$fieldPrefix . 'attribute_' . $attribute] = [
                 'type' => 'text',
-                'analyzer' => 'standard',
             ];
         }
 
@@ -612,7 +611,6 @@ class Indexes extends Component
             foreach ($elementType::searchableAttributes() as $attribute) {
                 $mapping[$fieldPrefix . 'attribute_' . $attribute] = [
                     'type' => 'text',
-                    'analyzer' => 'standard',
                 ];
             }
         }
@@ -622,7 +620,6 @@ class Indexes extends Component
             if ($field->searchable) {
                 $mapping[$fieldPrefix . 'field_' . $field->id] = [
                     'type' => 'text',
-                    'analyzer' => 'standard',
                 ];
             }
         }
@@ -637,7 +634,11 @@ class Indexes extends Component
         return [
             "analysis" => [
                 "analyzer" => [
-                    "standard_stopwords" => [
+                    // Define the analyzer in the reserved "default" slot so every text field
+                    // without an explicit analyzer falls back to it. This applies the
+                    // language-aware stopword handling everywhere and lets field mappings omit
+                    // the analyzer parameter entirely (which is what avoids the 400 conflict).
+                    "default" => [
                         "type" => "standard",
                         "stopwords" => $language,
                     ],
@@ -831,7 +832,9 @@ class Indexes extends Component
             'index' => $this->getIndexName($site),
             'body' => [
                 'text' => $text,
-                'analyzer' => 'standard',
+                // Use the index default analyzer so the diagnostic reflects how content
+                // fields are actually analyzed (standard + language stopwords).
+                'analyzer' => 'default',
             ],
         ];
 
