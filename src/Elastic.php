@@ -116,16 +116,26 @@ class Elastic extends Plugin
                     return;
                 }
 
-                Craft::$app->getQueue()->push(new UpdateElasticsearchIndex([
-                    'elementType' => $elementType,
-                    'elementId' => $element->id,
-                ]));
+                try {
+                    Craft::$app->getQueue()->push(new UpdateElasticsearchIndex([
+                        'elementType' => $elementType,
+                        'elementId' => $element->id,
+                    ]));
+                } catch (\Throwable $e) {
+                    // Indexing is best-effort; never let a queue failure break saving the element.
+                    Craft::error('Could not queue Elasticsearch index update for element ' . $element->id . ': ' . $e->getMessage(), 'elastic');
+                }
             });
         }
 
         // Register event when changing field definitions
         Craft::$app->fields->on(Fields::EVENT_AFTER_SAVE_FIELD, function() {
-            Craft::$app->queue->push(new UpdateMapping());
+            try {
+                Craft::$app->queue->push(new UpdateMapping());
+            } catch (\Throwable $e) {
+                // Best-effort; a queue failure must not break saving the field.
+                Craft::error('Could not queue Elasticsearch mapping update: ' . $e->getMessage(), 'elastic');
+            }
         });
 
         // Register utilities
@@ -144,10 +154,15 @@ class Elastic extends Plugin
                     $settings->lastMode = false;
                     $settings->lastSwitch = time();
                 } else {
-                    Craft::$app->getQueue()->push(new ReindexUpdatedElements([
-                        'startDate' => DateTimeHelper::toDateTime($settings->lastSwitch),
-                        'toDatabaseIndex' => true,
-                    ]));
+                    try {
+                        Craft::$app->getQueue()->push(new ReindexUpdatedElements([
+                            'startDate' => DateTimeHelper::toDateTime($settings->lastSwitch),
+                            'toDatabaseIndex' => true,
+                        ]));
+                    } catch (\Throwable $e) {
+                        // Best-effort reindex; don't block the settings save on a queue failure.
+                        Craft::error('Could not queue Elasticsearch reindex on mode switch: ' . $e->getMessage(), 'elastic');
+                    }
                     $settings->lastMode = true;
                     $settings->lastSwitch = 0;
                 }
@@ -214,7 +229,7 @@ class Elastic extends Plugin
                     ],
                 ],
                 // Resolved scoring tier weights (configured values merged over the defaults).
-                'scoringWeights' => array_merge(Settings::SCORING_DEFAULTS, $settings->scoring['default'] ?? []),
+                'scoringWeights' => $settings->resolvedScoringDefaults(),
                 'scoringHints' => [
                     'exact' => Craft::t('elastic', 'Whole-value match on a field (e.g. an artist named exactly “Abba”).'),
                     'phrase' => Craft::t('elastic', 'The term matched as a phrase.'),

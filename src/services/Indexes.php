@@ -96,7 +96,7 @@ class Indexes extends Component
         $indexes = Elastic::$plugin->getElasticsearch()->getClient()->indices()->get($params);
 
         foreach ($indexes as $indexName => $indexDetails) {
-            foreach ($indexDetails['aliases'] as $aliasName => $aliasDetails) {
+            foreach (($indexDetails['aliases'] ?? []) as $aliasName => $aliasDetails) {
                 $this->deleteAlias($indexName, $aliasName);
             }
 
@@ -142,11 +142,11 @@ class Indexes extends Component
 
         $result = Elastic::$plugin->getElasticsearch()->getClient()->reindex($params);
 
-        if (count($result['failures']) > 0) {
+        if (count($result['failures'] ?? []) > 0) {
             return false;
         }
 
-        $returnValue['total'] = $result['total'];
+        $returnValue['total'] = $result['total'] ?? 0;
         $returnValue['took'] = $result['took'];
         if ($this->addAlias($newIndexName, $site)) {
             $this->deleteAlias($oldIndexName, $this->getIndexName($site));
@@ -353,7 +353,7 @@ class Indexes extends Component
 
         $result = Elastic::$plugin->getElasticsearch()->getClient()->indices()->getAlias($params);
 
-        return array_keys($result)[0];
+        return array_keys($result)[0] ?? '';
     }
 
     /**
@@ -882,20 +882,6 @@ class Indexes extends Component
         $esLanguage = $this->isoCountryCodeToElasticLanguage($isoCountryCode) ?? 'none';
 
         return '_' . $esLanguage . '_';
-    }
-
-    /**
-     * Returns the analyzer language for a site's language.
-     *
-     * @param Site $site The site to use.
-     *
-     * @return string
-     */
-    private function getAnalyzerLanguage(Site $site): string
-    {
-        $isoCountryCode = $site->getLocale()->getLanguageID();
-
-        return $this->isoCountryCodeToElasticLanguage($isoCountryCode) ?? 'standard';
     }
 
     /**
