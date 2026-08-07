@@ -9,6 +9,8 @@ use craft\base\ElementInterface;
 use craft\models\Site;
 use Elasticsearch\Common\Exceptions\BadRequest400Exception;
 use Exception;
+use RuntimeException;
+use stdClass;
 use Throwable;
 use yii\base\InvalidConfigException;
 
@@ -32,6 +34,27 @@ class Indexes extends Component
      *             plugin was downgraded below the index's version).
      */
     public const STATUS_UNKNOWN = 'unknown';
+
+    /**
+     * @var string Marker written into the header line of an export file.
+     */
+    public const EXPORT_TYPE = 'codemonauts/elastic index export';
+
+    /**
+     * @var int Format version of the export file, so a future reader can detect old dumps.
+     */
+    public const EXPORT_FORMAT_VERSION = 1;
+
+    /**
+     * @var string How long the cluster keeps a scroll context alive between batches.
+     */
+    private const SCROLL_TTL = '2m';
+
+    /**
+     * @var string[] Index settings the cluster reports back but refuses on index creation, so
+     *               they have to be stripped before an exported index can be recreated.
+     */
+    private const NON_CREATABLE_SETTINGS = ['uuid', 'creation_date', 'version', 'provided_name', 'resize', 'history'];
 
     /**
      * @var string The name to use for the indexes.
@@ -194,6 +217,266 @@ class Indexes extends Component
         $this->setIndexToWrite($sourceIndex);
 
         return (bool)$result['acknowledged'];
+    }
+
+
+
+    // Functions to export and import indexes
+    // =========================================================================
+
+
+    /**
+     * Exports the current index of a site to an NDJSON file.
+     *
+     * The first line is a header holding the index metadata (mappings, settings and the source
+     * alias/index); every following line is one document as {"_id": ..., "_source": {...}}. The
+     * file is written as a stream, so its size is not bound by available memory.
+     *
+     * Note that the export only carries the Elasticsearch side. Since searches are filtered
+     * against the element IDs the Craft query returns, an imported index is only useful together
+     * with the matching Craft database.
+     *
+     * @param Site $site The site whose current index should be exported.
+     * @param string $path The file to write to.
+     * @param int $batchSize How many documents to fetch per scroll request.
+     *
+     * @return array{alias: string, index: string, total: int, file: string}
+     * @throws InvalidConfigException
+     */
+    public function exportIndex(Site $site, string $path, int $batchSize = 1000): array
+    {
+        $client = Elastic::$plugin->getElasticsearch()->getClient();
+        $alias = $this->getIndexName($site);
+        $index = (string)$this->getCurrentIndex($site);
+
+        $mappings = $client->indices()->getMapping(['index' => $index])[$index]['mappings'] ?? [];
+        $settings = $client->indices()->getSettings(['index' => $index])[$index]['settings']['index'] ?? [];
+
+        $handle = fopen($path, 'wb');
+        if ($handle === false) {
+            throw new RuntimeException('Could not open "' . $path . '" for writing.');
+        }
+
+        $total = 0;
+        $scrollId = null;
+
+        try {
+            $this->writeJsonLine($handle, [
+                'type' => self::EXPORT_TYPE,
+                'formatVersion' => self::EXPORT_FORMAT_VERSION,
+                'alias' => $alias,
+                'index' => $index,
+                'mappings' => $mappings,
+                'settings' => array_diff_key($settings, array_flip(self::NON_CREATABLE_SETTINGS)),
+            ]);
+
+            $response = $client->search([
+                'index' => $index,
+                'scroll' => self::SCROLL_TTL,
+                'size' => $batchSize,
+                'body' => [
+                    'query' => [
+                        'match_all' => new stdClass(),
+                    ],
+                ],
+            ]);
+
+            while (count($response['hits']['hits'] ?? []) > 0) {
+                foreach ($response['hits']['hits'] as $hit) {
+                    $this->writeJsonLine($handle, [
+                        '_id' => $hit['_id'],
+                        '_source' => $hit['_source'] ?? new stdClass(),
+                    ]);
+                    $total++;
+                }
+
+                $scrollId = $response['_scroll_id'] ?? $scrollId;
+                if ($scrollId === null) {
+                    break;
+                }
+
+                $response = $client->scroll([
+                    'scroll_id' => $scrollId,
+                    'scroll' => self::SCROLL_TTL,
+                ]);
+            }
+        } finally {
+            fclose($handle);
+
+            if ($scrollId !== null) {
+                try {
+                    // Release the scroll context instead of waiting for it to time out.
+                    $client->clearScroll(['scroll_id' => $scrollId]);
+                } catch (Throwable $e) {
+                    Craft::warning('Could not clear the Elasticsearch scroll context: ' . $e->getMessage(), 'elastic');
+                }
+            }
+        }
+
+        return [
+            'alias' => $alias,
+            'index' => $index,
+            'total' => $total,
+            'file' => $path,
+        ];
+    }
+
+    /**
+     * Imports an NDJSON file written by exportIndex() as the new index of a site.
+     *
+     * The index is recreated from the mappings and settings stored in the file — so the export
+     * is reproduced faithfully, including its mapping version. Run elastic/index/reindex
+     * afterwards to lift it to the plugin's current schema. On success the site alias is moved
+     * to the new index and the previous one is left in place (delete it with
+     * elastic/index/delete --orphaned-only).
+     *
+     * @param Site $site The site to import the index for.
+     * @param string $path The export file to read.
+     * @param int $batchSize How many documents to send per bulk request.
+     *
+     * @return array{alias: string, index: string, sourceIndex: string, total: int, failed: int}
+     * @throws InvalidConfigException
+     */
+    public function importIndex(Site $site, string $path, int $batchSize = 1000): array
+    {
+        $client = Elastic::$plugin->getElasticsearch()->getClient();
+
+        $handle = fopen($path, 'rb');
+        if ($handle === false) {
+            throw new RuntimeException('Could not open "' . $path . '" for reading.');
+        }
+
+        $alias = $this->getIndexName($site);
+        $newIndex = $alias . '_' . time();
+        $total = 0;
+        $failed = 0;
+
+        try {
+            $header = $this->readJsonLine($handle);
+            if (($header['type'] ?? null) !== self::EXPORT_TYPE) {
+                throw new RuntimeException('"' . $path . '" is not an Elasticsearch index export.');
+            }
+
+            $client->indices()->create([
+                'index' => $newIndex,
+                'body' => [
+                    'settings' => $header['settings'] ?? new stdClass(),
+                    'mappings' => $header['mappings'] ?? new stdClass(),
+                ],
+            ]);
+
+            $batch = [];
+            while (($document = $this->readJsonLine($handle)) !== null) {
+                $batch[] = $document;
+
+                if (count($batch) >= $batchSize) {
+                    $failed += $this->bulkIndex($newIndex, $batch);
+                    $total += count($batch);
+                    $batch = [];
+                }
+            }
+
+            if (count($batch) > 0) {
+                $failed += $this->bulkIndex($newIndex, $batch);
+                $total += count($batch);
+            }
+        } finally {
+            fclose($handle);
+        }
+
+        // Make the documents visible to searches right away instead of waiting for the refresh
+        // interval — an import is usually followed by a query.
+        $client->indices()->refresh(['index' => $newIndex]);
+
+        $oldIndex = $this->aliasExists($alias) ? (string)$this->getCurrentIndex($site) : null;
+        if ($this->addAlias($newIndex, $site) && $oldIndex !== null) {
+            $this->deleteAlias($oldIndex, $alias);
+        }
+
+        return [
+            'alias' => $alias,
+            'index' => $newIndex,
+            'sourceIndex' => (string)($header['index'] ?? ''),
+            'total' => $total,
+            'failed' => $failed,
+        ];
+    }
+
+    /**
+     * Indexes a batch of exported documents, keeping their original IDs.
+     *
+     * @param string $indexName The index to write to.
+     * @param array $documents Rows of ['_id' => ..., '_source' => [...]].
+     *
+     * @return int The number of documents the cluster rejected.
+     * @throws InvalidConfigException
+     */
+    private function bulkIndex(string $indexName, array $documents): int
+    {
+        $params = ['body' => []];
+
+        foreach ($documents as $document) {
+            $params['body'][] = [
+                'index' => [
+                    '_index' => $indexName,
+                    '_id' => $document['_id'],
+                ],
+            ];
+            $params['body'][] = $document['_source'] ?? new stdClass();
+        }
+
+        $result = Elastic::$plugin->getElasticsearch()->getClient()->bulk($params);
+
+        if (!($result['errors'] ?? false)) {
+            return 0;
+        }
+
+        $failed = 0;
+        foreach ($result['items'] ?? [] as $item) {
+            if (isset($item['index']['error'])) {
+                $failed++;
+                Craft::warning('Could not import document ' . ($item['index']['_id'] ?? '?') . ': ' . json_encode($item['index']['error']), 'elastic');
+            }
+        }
+
+        return $failed;
+    }
+
+    /**
+     * Writes one JSON line to an open export file.
+     *
+     * @param resource $handle
+     * @param array $data
+     */
+    private function writeJsonLine($handle, array $data): void
+    {
+        fwrite($handle, json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL);
+    }
+
+    /**
+     * Reads the next non-empty JSON line of an export file.
+     *
+     * @param resource $handle
+     *
+     * @return array|null The decoded line, or null at the end of the file.
+     */
+    private function readJsonLine($handle): ?array
+    {
+        while (($line = fgets($handle)) !== false) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+
+            $decoded = json_decode($line, true);
+            if (!is_array($decoded)) {
+                throw new RuntimeException('Malformed line in the export file: ' . substr($line, 0, 80));
+            }
+
+            return $decoded;
+        }
+
+        return null;
     }
 
 

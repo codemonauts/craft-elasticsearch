@@ -11,6 +11,7 @@
 - Console command `elastic/index/query` to run a search query against an index and output the raw Elasticsearch response with per-hit score explanations (`explain: true`). Takes a search string and an optional result limit.
 - `scoring` setting with per-tier relevance weights (editable on the plugin settings page; optional per-field overrides via `config/elastic.php`), and a `matchBoolPrefix` setting to override the automatic prefix-match capability detection.
 - `elastic/migration` (invoked without an action) now lists the available migration commands instead of failing with "Unknown command", and works without a configured endpoint.
+- Console commands `elastic/index/export` and `elastic/index/import` to write the current index of a site to an NDJSON file and recreate it on another cluster. The export runs through the configured connection, so an AWS OpenSearch domain is exported with the usual IAM credentials. The index is recreated exactly as exported, including its mapping version; run `elastic/index/reindex` afterwards to lift it to the current schema. Note that searches are filtered against the element IDs the Craft query returns, so an imported index is only useful together with the matching Craft database.
 
 ### Changed
 
@@ -32,6 +33,7 @@
 - Console commands now report a clear message and a non-zero exit code instead of a stack trace when the cluster is unreachable or the connection is misconfigured.
 - The "Elasticsearch Indexes" utility no longer errors out when the cluster is unreachable.
 - Saving elements or fields no longer fails when the queue is unavailable; indexing is queued best-effort and failures are logged.
+- Console commands now report unreadable or malformed files with a clear message instead of a stack trace.
 
 ## 2.0.0 - 2022-06-15
 

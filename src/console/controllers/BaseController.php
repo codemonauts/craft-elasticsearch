@@ -5,6 +5,7 @@ namespace codemonauts\elastic\console\controllers;
 use codemonauts\elastic\Elastic;
 use Craft;
 use Elasticsearch\Common\Exceptions\ElasticsearchException;
+use RuntimeException;
 use yii\base\InvalidConfigException;
 use yii\console\Controller;
 use yii\console\Exception;
@@ -67,6 +68,12 @@ abstract class BaseController extends Controller
             throw new Exception(Craft::t('elastic', 'The Elasticsearch plugin is misconfigured: {message}. Check the connection settings.', [
                 'message' => $e->getMessage(),
             ]));
+        } catch (RuntimeException $e) {
+            // Operational problems the services report with a ready-made message (unreadable or
+            // malformed export files, ...). Pass the message through without a stack trace.
+            Craft::error('Elasticsearch command failed: ' . $e->getMessage(), 'elastic');
+
+            throw new Exception($e->getMessage());
         }
     }
 }

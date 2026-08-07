@@ -258,6 +258,90 @@ class IndexController extends BaseController
     }
 
     /**
+     * Exports the current index of a site to an NDJSON file, so it can be recreated on another
+     * cluster (e.g. a local one) with elastic/index/import. Runs through the configured
+     * connection, so an AWS OpenSearch domain is exported with the usual IAM credentials.
+     *
+     * Note that the export only carries the Elasticsearch side: searches are filtered against the
+     * element IDs the Craft query returns, so the import is only useful together with the
+     * matching Craft database.
+     *
+     * @param string $siteHandle The site whose current index should be exported.
+     * @param string|null $file The file to write to. Defaults to <alias>-<timestamp>.ndjson.
+     *
+     * @return int
+     * @throws InvalidConfigException
+     */
+    public function actionExport(string $siteHandle, string $file = null): int
+    {
+        $indexes = Elastic::$plugin->getIndexes();
+
+        $site = Craft::$app->getSites()->getSiteByHandle($siteHandle);
+        if (!$site) {
+            $this->stderr('No site found with the handle "' . $siteHandle . '".' . PHP_EOL, Console::FG_RED);
+
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+
+        $file = $file ?? $indexes->getIndexName($site) . '-' . date('Ymd-His') . '.ndjson';
+
+        $this->stdout('Exporting index of site "');
+        $this->stdout($site->handle, Console::FG_YELLOW);
+        $this->stdout('" to ' . $file . '...' . PHP_EOL);
+
+        $result = $indexes->exportIndex($site, $file);
+
+        $this->stdout('Exported ' . $result['total'] . ' documents from index ' . $result['index'] . '.' . PHP_EOL, Console::FG_GREEN);
+
+        return ExitCode::OK;
+    }
+
+    /**
+     * Imports an NDJSON file written by elastic/index/export as the new index of a site.
+     *
+     * The index is recreated exactly as exported, including its mapping version — run
+     * elastic/index/reindex afterwards to lift it to the plugin's current schema. The previous
+     * index is kept; remove it with "elastic/index/delete --orphaned-only".
+     *
+     * @param string $file The export file to read.
+     * @param string $siteHandle The site to import the index for.
+     *
+     * @return int
+     * @throws InvalidConfigException
+     */
+    public function actionImport(string $file, string $siteHandle): int
+    {
+        $indexes = Elastic::$plugin->getIndexes();
+
+        $site = Craft::$app->getSites()->getSiteByHandle($siteHandle);
+        if (!$site) {
+            $this->stderr('No site found with the handle "' . $siteHandle . '".' . PHP_EOL, Console::FG_RED);
+
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+
+        if (!is_readable($file)) {
+            $this->stderr('The file "' . $file . '" does not exist or is not readable.' . PHP_EOL, Console::FG_RED);
+
+            return ExitCode::UNSPECIFIED_ERROR;
+        }
+
+        if (!$this->confirm('Import "' . $file . '" as the new index for the site with the handle "' . $site->handle . '"?')) {
+            return ExitCode::OK;
+        }
+
+        $result = $indexes->importIndex($site, $file);
+
+        $this->stdout('Imported ' . $result['total'] . ' documents into ' . $result['index'] . '.' . PHP_EOL, Console::FG_GREEN);
+        if ($result['failed'] > 0) {
+            $this->stderr($result['failed'] . ' documents were rejected by the cluster, see the logs for details.' . PHP_EOL, Console::FG_YELLOW);
+        }
+        $this->stdout('The alias ' . $result['alias'] . ' now points to the imported index. Run "php craft elastic/index/reindex" to lift it to the current mapping schema.' . PHP_EOL);
+
+        return ExitCode::OK;
+    }
+
+    /**
      * Lists all aliases and indexes from the configured Elasticsearch cluster.
      */
     public function actionList()
