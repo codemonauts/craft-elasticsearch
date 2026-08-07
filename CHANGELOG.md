@@ -1,6 +1,6 @@
 # Release Notes for Elasticsearch Plugin
 
-## 3.0.0 - 2026-08-07
+## Unreleased
 
 > {note} This is the first Craft CMS 5 release. It requires Craft CMS 5 and PHP 8.2+. After updating, rebuild your indexes (create → reindex → alias-swap) so they pick up the current mapping schema; drift detection flags out-of-date indexes.
 
@@ -22,6 +22,7 @@
 - The search analyzer, including the language-aware stopword list, is now defined in the index-level `default` slot instead of a named analyzer, and the `analyzer` parameter was removed from all field mappings. Existing indexes keep working unchanged and no data is at risk; the stopword handling only takes effect on indexes created after this update. Drift detection reports pre-existing indexes as `outdated` — rebuild them via the normal create → reindex → alias-swap flow to pick up the new behaviour. Until rebuilt, search behaviour may differ between index generations on the same plugin version.
 - Every text field now has an additive `.exact` keyword subfield (with a lowercasing normalizer) used for exact, whole-value matching and relevance scoring. Existing indexes keep working, but the exact tier only populates after a rebuild; drift detection reports pre-existing indexes as `outdated`.
 - Search scoring is now built from Craft's per-term flags (exact, phrase, sub-word, exclude, attribute) as distinct query clauses instead of a single wildcard `query_string`. Results are ranked by relevance — an exact whole-value match ranks highest — rather than every hit scoring `1`, and OR groups and term exclusion are now handled. Result sets for plain terms are unchanged (only the ordering changes); terms using an exact/attribute flag or a leading `*` may return fewer, more correct results than before. The exact tier requires a rebuilt index.
+- The `authentication` connection setting can now be overridden with an environment variable (resolved at runtime, like the other connection settings). Its settings-page field is now an autosuggest input offering the known methods (`none`, `basicauth`, `aws`) and environment variables, replacing the fixed dropdown.
 
 ### Fixed
 

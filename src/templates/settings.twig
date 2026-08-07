@@ -44,13 +44,15 @@
     required: true
 }) }}
 
-{{ forms.selectField({
+{{ forms.autosuggestField({
     label: "Authentication"|t("elastic"),
     id: 'authentication',
     name: 'authentication',
-    instructions: "The authentication method to use. Choose 'None' for an endpoint without authentication (e.g. a local OpenSearch)."|t("elastic"),
+    instructions: "The authentication method to use. Choose 'none' for an endpoint without authentication (e.g. a local OpenSearch). Can be overridden with an environment variable."|t("elastic"),
     value: settings.authentication,
-    options: authenticationOptions,
+    suggestions: authenticationSuggestions,
+    suggestEnvVars: true,
+    errors: settings.getErrors('authentication'),
     required: true
 }) }}
 
