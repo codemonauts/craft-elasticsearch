@@ -16,7 +16,7 @@ use yii\base\InvalidConfigException;
 class Elasticsearch extends Component
 {
     /**
-     * @var string|null The authentication to use. You can use 'realm' or 'aws'.
+     * @var string|null The authentication to use. You can use 'none', 'basicauth' or 'aws'.
      */
     public ?string $authentication;
 
@@ -73,6 +73,10 @@ class Elasticsearch extends Component
                 $this->client = ClientBuilder::create()
                     ->setHosts($this->hosts)
                     ->setBasicAuthentication($this->username, $this->password)
+                    ->build();
+            } else if ($this->authentication === 'none') {
+                $this->client = ClientBuilder::create()
+                    ->setHosts($this->hosts)
                     ->build();
             } else {
                 throw new InvalidConfigException('No valid authentication method set.');

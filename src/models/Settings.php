@@ -30,8 +30,9 @@ class Settings extends Model
     public string $endpoint = '';
 
     /**
-     * @var string|null The authentication method to use. Valid values are 'aws' for IAM credentials or instance
-     *                  profiles and 'basicauth' for all other realms with username and password authentication.
+     * @var string|null The authentication method to use. Valid values are 'none' for an endpoint without
+     *                  authentication, 'basicauth' for username and password authentication and 'aws' for IAM
+     *                  credentials or instance profiles.
      */
     public ?string $authentication = null;
 
