@@ -171,8 +171,9 @@ class Elastic extends Plugin
         return Craft::$app->getView()->renderTemplate('elastic/settings', [
                 'settings' => $this->getSettings(),
                 'authenticationOptions' => [
-                    'aws' => 'AWS',
+                    'none' => 'None',
                     'basicauth' => 'BasicAuth',
+                    'aws' => 'AWS',
                 ],
                 'boostsCols' => [
                     'handle' => [
