@@ -11,9 +11,8 @@ use craft\db\Table;
 use craft\helpers\Console;
 use craft\helpers\DateTimeHelper;
 use Exception;
-use yii\console\Controller;
 
-class MigrationController extends Controller
+class MigrationController extends BaseController
 {
     use BackupTrait;
 

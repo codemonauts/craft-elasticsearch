@@ -245,4 +245,16 @@ class Elastic extends Plugin
     {
         return $this->get('elements');
     }
+
+    /**
+     * Whether an Elasticsearch endpoint is configured. The search components are only registered
+     * when this is true (see init()).
+     */
+    public function isConfigured(): bool
+    {
+        /** @var Settings $settings */
+        $settings = $this->getSettings();
+
+        return App::parseEnv((string)$settings->endpoint) !== '';
+    }
 }

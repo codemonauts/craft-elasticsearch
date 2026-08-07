@@ -10,9 +10,8 @@ use craft\db\Query;
 use craft\db\Table;
 use craft\helpers\Console;
 use yii\base\NotSupportedException;
-use yii\console\Controller;
 
-class ElementsController extends Controller
+class ElementsController extends BaseController
 {
     /**
      * Index elements to current index.
