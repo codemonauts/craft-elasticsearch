@@ -31,6 +31,11 @@ use craft\services\Utilities;
 class Elastic extends Plugin
 {
     /**
+     * @var int The mapping schema version stamped into every index this plugin creates.
+     */
+    public const MAPPING_VERSION = 1;
+
+    /**
      * @var Elastic|null
      */
     public static ?Elastic $plugin;

@@ -3,6 +3,7 @@
 namespace codemonauts\elastic\console\controllers;
 
 use codemonauts\elastic\Elastic;
+use codemonauts\elastic\services\Indexes;
 use craft\helpers\Console;
 use craft\helpers\DateTimeHelper;
 use craft\models\Site;
@@ -167,6 +168,7 @@ class IndexController extends Controller
     public function actionReindex(string $siteHandle = null)
     {
         $indexService = Elastic::$plugin->getIndexes();
+        $this->printDriftNotice();
         $sites = $this->_getSites($siteHandle);
         $hint = false;
 
@@ -267,8 +269,15 @@ class IndexController extends Controller
         $result = $indexService->list();
         $table = new Table();
 
+        // Map the drift status by alias so we can annotate each alias row (one cluster call,
+        // cached). Returns [] silently if the cluster can't be reached.
+        $drift = [];
+        foreach ($indexService->detectMappingDrift() as $d) {
+            $drift[$d['alias']] = $d;
+        }
+
         $this->stdout('Aliases' . PHP_EOL);
-        $table->setHeaders(['Alias', 'Current index']);
+        $table->setHeaders(['Alias', 'Current index', 'Schema']);
         $rows = [];
         $activeIndexes = [];
         foreach ($result['aliases'] as $alias) {
@@ -282,6 +291,7 @@ class IndexController extends Controller
             $rows[] = [
                 $alias['alias'],
                 $alias['index'],
+                $this->schemaCell($drift[$alias['alias']] ?? null),
             ];
         }
         echo $table->setRows($rows)->run() . PHP_EOL;
@@ -328,6 +338,52 @@ class IndexController extends Controller
         echo $table->setRows($rows)->run();
     }
 
+    /**
+     * Formats a single drift row for the "Schema" column of the alias listing.
+     *
+     * @param array|null $drift A row from Indexes::detectMappingDrift(), or null if unknown.
+     *
+     * @return string
+     */
+    private function schemaCell(?array $drift): string
+    {
+        if ($drift === null) {
+            return '';
+        }
+
+        return match ($drift['status']) {
+            Indexes::STATUS_CURRENT => Console::ansiFormat('current', [Console::FG_GREEN]),
+            Indexes::STATUS_OUTDATED => Console::ansiFormat('outdated (v' . $drift['found'] . '→v' . $drift['expected'] . ') — reindex', [Console::FG_YELLOW]),
+            default => Console::ansiFormat('unknown — reindex', [Console::FG_RED]),
+        };
+    }
+
+    /**
+     * Prints a schema-drift notice for every index that is not current, with the exact next
+     * step. No-op when everything is current or the cluster can't be reached.
+     */
+    private function printDriftNotice(): void
+    {
+        foreach (Elastic::$plugin->getIndexes()->detectMappingDrift() as $drift) {
+            if ($drift['status'] === Indexes::STATUS_CURRENT) {
+                continue;
+            }
+
+            if ($drift['status'] === Indexes::STATUS_OUTDATED) {
+                $message = 'Schema drift: index "' . $drift['alias'] . '" runs mapping version v' . $drift['found']
+                    . ', the plugin expects v' . $drift['expected'] . '. Reindexing will adopt the current schema.';
+            } elseif ($drift['found'] === null) {
+                $message = 'Schema drift: index "' . $drift['alias'] . '" has no recorded mapping version '
+                    . '(created before drift detection existed). Reindexing will stamp the current schema.';
+            } else {
+                $message = 'Schema drift: index "' . $drift['alias'] . '" reports mapping version v' . $drift['found']
+                    . ', newer than the plugin (v' . $drift['expected'] . ') — the plugin may have been downgraded. '
+                    . 'Reindexing will stamp the current schema.';
+            }
+
+            $this->stdout($message . PHP_EOL, BaseConsole::FG_YELLOW);
+        }
+    }
 
     /**
      * Returns the sites as array.
