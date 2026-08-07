@@ -23,6 +23,7 @@
 - Every text field now has an additive `.exact` keyword subfield (with a lowercasing normalizer) used for exact, whole-value matching and relevance scoring. Existing indexes keep working, but the exact tier only populates after a rebuild; drift detection reports pre-existing indexes as `outdated`.
 - Search scoring is now built from Craft's per-term flags (exact, phrase, sub-word, exclude, attribute) as distinct query clauses instead of a single wildcard `query_string`. Results are ranked by relevance — an exact whole-value match ranks highest — rather than every hit scoring `1`, and OR groups and term exclusion are now handled. Result sets for plain terms are unchanged (only the ordering changes); terms using an exact/attribute flag or a leading `*` may return fewer, more correct results than before. The exact tier requires a rebuilt index.
 - The `authentication` connection setting can now be overridden with an environment variable (resolved at runtime, like the other connection settings). Its settings-page field is now an autosuggest input offering the known methods (`none`, `basicauth`, `aws`) and environment variables, replacing the fixed dropdown.
+- The plugin settings page is now organised into General, Boosting and Scoring tabs. The former "Tuning" section is now labelled "Boosting".
 
 ### Fixed
 
