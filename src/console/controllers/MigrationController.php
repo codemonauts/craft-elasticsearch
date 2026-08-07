@@ -11,10 +11,38 @@ use craft\db\Table;
 use craft\helpers\Console;
 use craft\helpers\DateTimeHelper;
 use Exception;
+use yii\console\ExitCode;
 
 class MigrationController extends BaseController
 {
     use BackupTrait;
+
+    /**
+     * @var string[] Actions that work without a configured endpoint.
+     */
+    protected array $unguardedActions = ['index'];
+
+    /**
+     * Lists the available migration commands.
+     */
+    public function actionIndex(): int
+    {
+        $commands = [
+            'elastic/migration/truncate-table' => 'Truncate Craft\'s full-text search database table.',
+            'elastic/migration/reindex <date>' => 'Reindex elements created or updated since <date> to the database and Elasticsearch indexes.',
+        ];
+
+        $this->stdout(PHP_EOL . 'Available migration commands:' . PHP_EOL . PHP_EOL, Console::FG_YELLOW);
+
+        foreach ($commands as $command => $description) {
+            $this->stdout('  ' . $command . PHP_EOL, Console::FG_GREEN);
+            $this->stdout('    ' . $description . PHP_EOL . PHP_EOL);
+        }
+
+        $this->stdout('Run "php craft help <command>" for the full options of a command.' . PHP_EOL);
+
+        return ExitCode::OK;
+    }
 
     /**
      * Command to truncate Craft's full-text search database table.

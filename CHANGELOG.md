@@ -14,6 +14,7 @@
 - Event to manipulate the search parameters before querying Elasticsearch.
 - Console command `elastic/index/query` to run a search query against an index and output the raw Elasticsearch response with per-hit score explanations (`explain: true`). Takes a search string and an optional result limit.
 - `scoring` setting with per-tier relevance weights (editable on the plugin settings page; optional per-field overrides via `config/elastic.php`), and a `matchBoolPrefix` setting to override the automatic prefix-match capability detection.
+- `elastic/migration` (invoked without an action) now lists the available migration commands instead of failing with "Unknown command", and works without a configured endpoint.
 
 ### Changed
 

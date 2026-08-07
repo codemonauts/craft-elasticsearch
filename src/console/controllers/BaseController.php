@@ -17,6 +17,11 @@ use yii\console\Exception;
 abstract class BaseController extends Controller
 {
     /**
+     * @var string[] Action IDs that work without a configured endpoint (e.g. help listings).
+     */
+    protected array $unguardedActions = [];
+
+    /**
      * @inheritdoc
      * @throws Exception if no Elasticsearch endpoint is configured.
      */
@@ -26,7 +31,7 @@ abstract class BaseController extends Controller
             return false;
         }
 
-        if (!Elastic::$plugin->isConfigured()) {
+        if (!in_array($action->id, $this->unguardedActions, true) && !Elastic::$plugin->isConfigured()) {
             throw new Exception(Craft::t('elastic', 'No Elasticsearch endpoint is configured. Set the endpoint on the plugin settings page before running elastic commands.'));
         }
 
