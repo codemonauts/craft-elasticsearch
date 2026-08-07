@@ -2,7 +2,9 @@
 
 namespace codemonauts\elastic\console\controllers;
 
+use codemonauts\elastic\Elastic;
 use codemonauts\elastic\jobs\ReindexUpdatedElements;
+use codemonauts\elastic\services\Indexes;
 use Craft;
 use craft\console\controllers\BackupTrait;
 use craft\db\Table;
@@ -52,6 +54,19 @@ class MigrationController extends Controller
         if (!$startDate) {
             $this->stderr("Unknown date: $date" . PHP_EOL, Console::FG_RED);
             return;
+        }
+
+        // Warn before reindexing documents into an index whose schema is behind the plugin.
+        if ($toElasticsearch) {
+            foreach (Elastic::$plugin->getIndexes()->detectMappingDrift() as $drift) {
+                if ($drift['status'] === Indexes::STATUS_CURRENT) {
+                    continue;
+                }
+                $this->stdout('Schema drift on index "' . $drift['alias'] . '" (' . $drift['status']
+                    . '). Reindexing documents will not fix the schema — run '
+                    . '"php craft elastic/index/reindex" to recreate the index with the current schema.' . PHP_EOL,
+                    Console::FG_YELLOW);
+            }
         }
 
         if (!$this->confirm('Re-index all elements created or updated since ' . $startDate->format(DATE_ISO8601) . '?')) {

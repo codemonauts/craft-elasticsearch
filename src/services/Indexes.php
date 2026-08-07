@@ -7,7 +7,9 @@ use Craft;
 use craft\base\Component;
 use craft\base\ElementInterface;
 use craft\models\Site;
+use Elasticsearch\Common\Exceptions\BadRequest400Exception;
 use Exception;
+use Throwable;
 use yii\base\InvalidConfigException;
 
 /**
@@ -15,6 +17,22 @@ use yii\base\InvalidConfigException;
  */
 class Indexes extends Component
 {
+    /**
+     * @var string Index schema is in sync with the plugin's current mapping version.
+     */
+    public const STATUS_CURRENT = 'current';
+
+    /**
+     * @var string Index was created with an older mapping version; a reindex is needed.
+     */
+    public const STATUS_OUTDATED = 'outdated';
+
+    /**
+     * @var string Version could not be determined (index predates this feature, or the
+     *             plugin was downgraded below the index's version).
+     */
+    public const STATUS_UNKNOWN = 'unknown';
+
     /**
      * @var string The name to use for the indexes.
      */
@@ -202,6 +220,10 @@ class Indexes extends Component
 
         $result = Elastic::$plugin->getElasticsearch()->getClient()->indices()->putAlias($params);
 
+        // The alias now points at a (possibly new) concrete index, so any cached drift result
+        // is stale. Drop it so the next read reflects the current schema immediately.
+        Craft::$app->cache->delete($this->driftCacheKey());
+
         return (bool)$result['acknowledged'];
     }
 
@@ -291,6 +313,11 @@ class Indexes extends Component
             'body' => [
                 'settings' => $this->buildSettings($site),
                 'mappings' => [
+                    // Stamp the schema version into the mapping metadata. `_meta` is ignored
+                    // by the cluster and read back by detectMappingDrift(). Never in properties.
+                    '_meta' => [
+                        'cmonauts_mapping_version' => Elastic::MAPPING_VERSION,
+                    ],
                     'properties' => $this->buildMapping(),
                 ],
             ],
@@ -451,6 +478,113 @@ class Indexes extends Component
     }
 
     /**
+     * Detects mapping-schema drift for every site's index.
+     *
+     * For each site alias it resolves the concrete index, reads the stamped
+     * cmonauts_mapping_version from the mapping's _meta and compares it to Elastic::MAPPING_VERSION.
+     * Returns one row per resolved index:
+     *   ['alias' => string, 'site' => string|null, 'index' => string, 'found' => int|null,
+     *    'expected' => int, 'status' => self::STATUS_CURRENT|STATUS_OUTDATED|STATUS_UNKNOWN]
+     *
+     * Read-only — never mutates the cluster. The result is cached (key includes the plugin
+     * version, so an update invalidates it) with a short TTL: a cache hit costs no cluster
+     * call, a miss costs exactly one. If the cluster is unreachable it logs and returns an
+     * empty array so the site keeps working; it never throws into the request cycle.
+     *
+     * @return array<int, array{alias: string, site: string|null, index: string, found: int|null, expected: int, status: string}>
+     */
+    public function detectMappingDrift(): array
+    {
+        $cacheKey = $this->driftCacheKey();
+        $cached = Craft::$app->cache->get($cacheKey);
+        if ($cached !== false) {
+            return $cached;
+        }
+
+        $expected = Elastic::MAPPING_VERSION;
+
+        // Map each site alias to its site handle so the result can name the exact reindex
+        // command (--site-handle takes the Craft site handle, not the alias).
+        $aliasToSite = [];
+        foreach (Craft::$app->getSites()->getAllSites() as $site) {
+            $aliasToSite[$this->getIndexName($site)] = $site->handle;
+        }
+        $aliases = array_keys($aliasToSite);
+        if (count($aliases) === 0) {
+            return [];
+        }
+
+        try {
+            // One cluster call for all aliases. Each alias resolves to its current concrete
+            // index; the response is keyed by concrete index name. ignore_unavailable keeps
+            // it from throwing when an alias has no index yet.
+            $result = Elastic::$plugin->getElasticsearch()->getClient()->indices()->getMapping([
+                'index' => implode(',', $aliases),
+                'ignore_unavailable' => true,
+                'allow_no_indices' => true,
+            ]);
+        } catch (Throwable $e) {
+            // Cluster unreachable or any other error: stay silent to the request cycle, log
+            // for the operator, and return nothing (not cached, so it retries next time).
+            Craft::warning('Could not read mapping metadata for drift detection: ' . $e->getMessage(), 'elastic');
+
+            return [];
+        }
+
+        $rows = [];
+        foreach ($result as $concreteIndex => $data) {
+            // Associate the concrete index back to its alias via the naming convention
+            // (concrete index = alias . '_' . time(), see buildIndexConfiguration()).
+            $alias = $concreteIndex;
+            foreach ($aliases as $candidate) {
+                if (str_starts_with($concreteIndex, $candidate . '_')) {
+                    $alias = $candidate;
+                    break;
+                }
+            }
+
+            $found = $data['mappings']['_meta']['cmonauts_mapping_version'] ?? null;
+            $found = is_numeric($found) ? (int)$found : null;
+
+            if ($found === null) {
+                // No stamp: index predates this feature.
+                $status = self::STATUS_UNKNOWN;
+            } elseif ($found === $expected) {
+                $status = self::STATUS_CURRENT;
+            } elseif ($found < $expected) {
+                $status = self::STATUS_OUTDATED;
+            } else {
+                // found > expected: plugin was downgraded below the index's version.
+                $status = self::STATUS_UNKNOWN;
+            }
+
+            $rows[] = [
+                'alias' => $alias,
+                'site' => $aliasToSite[$alias] ?? null,
+                'index' => $concreteIndex,
+                'found' => $found,
+                'expected' => $expected,
+                'status' => $status,
+            ];
+        }
+
+        Craft::$app->cache->set($cacheKey, $rows, 300);
+
+        return $rows;
+    }
+
+    /**
+     * Cache key for the drift detection result. Includes the plugin version so a plugin
+     * update automatically invalidates any previously cached result.
+     *
+     * @return string
+     */
+    private function driftCacheKey(): string
+    {
+        return 'elastic:mappingdrift:' . Elastic::$plugin->version;
+    }
+
+    /**
      * Returns the mapping configuration for a site.
      *
      * @return array
@@ -535,7 +669,20 @@ class Indexes extends Component
 
         Craft::$app->cache->set('elastic:mapping:' . $site->id, array_keys($mapping));
 
-        return Elastic::$plugin->getElasticsearch()->getClient()->indices()->putMapping($params);
+        try {
+            return Elastic::$plugin->getElasticsearch()->getClient()->indices()->putMapping($params);
+        } catch (BadRequest400Exception $e) {
+            // The cluster rejects mapping changes that aren't possible on an existing index
+            // (e.g. changing a field's analyzer) with HTTP 400 illegal_argument_exception.
+            // This is a schema conflict, not a transient error: surface it with a clear next
+            // step and keep the original cluster message in the exception chain.
+            $message = 'Elasticsearch rejected the mapping update for index "' . $this->getIndexName($site)
+                . '" (schema conflict). The existing index cannot be updated in place; reindex it '
+                . 'with "php craft elastic/index/reindex --site-handle=' . $site->handle . '".';
+            Craft::error($message . ' Cluster said: ' . $e->getMessage(), 'elastic');
+
+            throw new Exception($message, 0, $e);
+        }
     }
 
     /**

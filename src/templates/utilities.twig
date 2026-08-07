@@ -1,5 +1,28 @@
 {% import "_includes/forms" as forms %}
 
+{% if driftWarnings is defined and driftWarnings|length %}
+    <div class="readable">
+        <blockquote class="note warning">
+            <p>{{ "Some Elasticsearch indexes are running an outdated or unknown mapping schema. Reindex the affected indexes to bring them up to the current schema."|t('elastic') }}</p>
+            <ul>
+                {% for w in driftWarnings %}
+                    <li>
+                        {% if w.status == 'outdated' %}
+                            {{ "Index “{alias}” runs schema version v{found}; the plugin expects v{expected}."|t('elastic', { alias: w.alias, found: w.found, expected: w.expected }) }}
+                        {% elseif w.found is null %}
+                            {{ "Index “{alias}” has no recorded schema version (it was created before drift detection existed)."|t('elastic', { alias: w.alias }) }}
+                        {% else %}
+                            {{ "Index “{alias}” reports schema version v{found}, newer than the plugin (v{expected}); the plugin may have been downgraded."|t('elastic', { alias: w.alias, found: w.found, expected: w.expected }) }}
+                        {% endif %}
+                        {{ "Run this command to recreate it with the current schema:"|t('elastic') }}
+                        <code>php craft elastic/index/reindex{{ w.site ? ' --site-handle=' ~ w.site : '' }}</code>
+                    </li>
+                {% endfor %}
+            </ul>
+        </blockquote>
+    </div>
+{% endif %}
+
 <h2>Status Elasticsearch indexes</h2>
 <div class="readable">
     <table id="elastic-status" class="data fullwidth ">

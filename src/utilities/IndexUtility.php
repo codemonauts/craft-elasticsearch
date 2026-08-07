@@ -3,6 +3,7 @@
 namespace codemonauts\elastic\utilities;
 
 use codemonauts\elastic\Elastic;
+use codemonauts\elastic\services\Indexes;
 use Craft;
 use craft\base\Utility;
 use Elasticsearch\Common\Exceptions\Missing404Exception;
@@ -64,8 +65,16 @@ class IndexUtility extends Utility
             }
         }
 
+        // Schema-drift detection (read-only, cached). Only the actionable rows are handed to
+        // the template for the warning block.
+        $driftWarnings = array_values(array_filter(
+            $indexService->detectMappingDrift(),
+            static fn(array $drift): bool => $drift['status'] !== Indexes::STATUS_CURRENT
+        ));
+
         return Craft::$app->getView()->renderTemplate('elastic/utilities', [
             'indexStatus' => $indexStatus,
+            'driftWarnings' => $driftWarnings,
         ]);
     }
 }
