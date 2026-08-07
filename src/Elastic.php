@@ -43,8 +43,12 @@ class Elastic extends Plugin
      * v3: every text field gained an ".exact" keyword subfield (with a lowercasing
      *     normalizer) for exact, whole-value matching and scoring. Existing indexes keep
      *     working, but the exact tier only populates after a rebuild.
+     * v4: every text field copies into a single catch-all field, which the query builder uses
+     *     instead of a wildcard over all fields (see Indexes::CATCH_ALL_MAPPING_VERSION).
+     *     Indexes below this version keep being queried the old way, because their documents
+     *     have no catch-all content until they are rebuilt.
      */
-    public const MAPPING_VERSION = 3;
+    public const MAPPING_VERSION = 4;
 
     /**
      * @var Elastic|null

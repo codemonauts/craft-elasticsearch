@@ -36,6 +36,14 @@ class Indexes extends Component
     public const STATUS_UNKNOWN = 'unknown';
 
     /**
+     * @var int The mapping version from which indexes carry the catch-all field. Documents in
+     *          older indexes have no catch-all content — adding the field to their mapping does
+     *          not backfill them — so those indexes keep being queried field by field until they
+     *          are rebuilt.
+     */
+    public const CATCH_ALL_MAPPING_VERSION = 4;
+
+    /**
      * @var string Marker written into the header line of an export file.
      */
     public const EXPORT_TYPE = 'codemonauts/elastic index export';
@@ -866,6 +874,68 @@ class Indexes extends Component
     }
 
     /**
+     * The name of the catch-all field every text field copies into.
+     *
+     * @return string
+     */
+    public function catchAllField(): string
+    {
+        return Elastic::$settings->fieldPrefix . 'all';
+    }
+
+    /**
+     * The name of the keyword catch-all field used for exact, whole-value matching.
+     *
+     * Copying into a keyword field keeps every source value as its own term instead of
+     * concatenating them, so a term query against it still means "some field holds exactly this
+     * value" — the same semantics as matching the per-field ".exact" subfields, in one clause.
+     *
+     * @return string
+     */
+    public function catchAllExactField(): string
+    {
+        return Elastic::$settings->fieldPrefix . 'all_exact';
+    }
+
+    /**
+     * Whether the site's current index can be queried through the catch-all field.
+     *
+     * True only once the index was rebuilt at CATCH_ALL_MAPPING_VERSION or later. Adding the
+     * field to an existing mapping succeeds, but leaves already-indexed documents without any
+     * catch-all content — querying it there would silently return nothing. The stamped version
+     * in the mapping's `_meta` only changes when the plugin creates the index, so it is a
+     * reliable signal (a plain mapping update leaves it untouched).
+     *
+     * @param Site $site The site whose current index to check.
+     *
+     * @return bool
+     */
+    public function supportsCatchAll(Site $site): bool
+    {
+        $cacheKey = 'elastic:catchall:' . $site->id . ':' . Elastic::$plugin->version;
+        $cached = Craft::$app->cache->get($cacheKey);
+        if ($cached !== false) {
+            return (bool)$cached;
+        }
+
+        $supported = false;
+        try {
+            $index = (string)$this->getCurrentIndex($site);
+            $mappings = Elastic::$plugin->getElasticsearch()->getClient()->indices()->getMapping(['index' => $index]);
+            $found = $mappings[$index]['mappings']['_meta']['cmonauts_mapping_version'] ?? null;
+            $supported = is_numeric($found) && (int)$found >= self::CATCH_ALL_MAPPING_VERSION;
+        } catch (Throwable $e) {
+            // Unreachable cluster or missing index: fall back to the field-by-field query, which
+            // works on every index generation.
+            Craft::warning('Could not determine the mapping version for the catch-all field: ' . $e->getMessage(), 'elastic');
+        }
+
+        Craft::$app->cache->set($cacheKey, $supported ? 1 : 0, 300);
+
+        return $supported;
+    }
+
+    /**
      * Returns the mapping configuration for a site.
      *
      * @return array
@@ -875,6 +945,20 @@ class Indexes extends Component
         $fieldPrefix = Elastic::$settings->fieldPrefix;
         $mapping = [];
 
+        // Catch-all fields every text field copies into. Querying these instead of a wildcard over
+        // every field keeps the clause count constant: Elasticsearch expands `*` to one clause per
+        // field (two, counting the ".exact" subfields), so a wildcard query grows with the number
+        // of searchable fields and eventually trips Lucene's maxClauseCount (1024). The copied
+        // content only lives in the index, not in _source.
+        $mapping[$this->catchAllField()] = [
+            'type' => 'text',
+        ];
+        $mapping[$this->catchAllExactField()] = [
+            'type' => 'keyword',
+            'normalizer' => 'lowercase_normalizer',
+            'ignore_above' => 256,
+        ];
+
         // Every searchable field is a text field with an additive ".exact" keyword subfield.
         // The subfield enables exact, whole-value matching (used for scoring and title::exact
         // queries); "ignore_above" drops values longer than 256 chars, so it stays cheap even
@@ -882,6 +966,7 @@ class Indexes extends Component
         // existing documents only populate it after a rebuild.
         $textField = [
             'type' => 'text',
+            'copy_to' => [$this->catchAllField(), $this->catchAllExactField()],
             'fields' => [
                 'exact' => [
                     'type' => 'keyword',

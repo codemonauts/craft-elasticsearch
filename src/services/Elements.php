@@ -36,6 +36,12 @@ class Elements extends Component
      * @var bool Whether the cluster supports match_bool_prefix (else match_phrase_prefix).
      */
     private bool $boolPrefix = false;
+
+    /**
+     * @var bool Whether the index being searched carries the catch-all field. Set at the start of
+     *           search(); false makes the query fall back to the wildcard over all fields.
+     */
+    private bool $catchAll = false;
     /**
      * @event BeforeQueryEvent The event that is triggered before the query is sent to ELasticsearch.
      */
@@ -116,6 +122,7 @@ class Elements extends Component
         $this->scoring = $this->scoringWeights();
         $this->fieldBoosts = $this->fieldBoostMap();
         $this->boolPrefix = Elastic::$plugin->getElasticsearch()->supportsMatchBoolPrefix();
+        $this->catchAll = $indexes->supportsCatchAll($site);
 
         // Build one clause per term from Craft's flags. Top-level tokens are AND-ed (must); an
         // excluded term goes to must_not and contributes no score; an OR group becomes a nested
@@ -353,7 +360,16 @@ class Elements extends Component
             return [$exact ? $name . '.exact' : $name];
         }
 
-        $fields = [$exact ? '*.exact' : '*'];
+        // Where the index has the catch-all fields, every tier queries a single field: `*` expands
+        // to one clause per field (plus one per ".exact" subfield), so on an installation with a
+        // few hundred searchable fields a two-term search already exceeds Lucene's maxClauseCount.
+        // Older indexes have no catch-all content and keep being queried field by field.
+        if ($this->catchAll) {
+            $fields = [$exact ? $indexes->catchAllExactField() : $indexes->catchAllField()];
+        } else {
+            $fields = [$exact ? '*.exact' : '*'];
+        }
+
         foreach ($this->fieldBoosts as $handle => $boost) {
             $name = $indexes->mapAttributeToField($handle);
             $fields[] = ($exact ? $name . '.exact' : $name) . '^' . $boost;
