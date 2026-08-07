@@ -2,6 +2,8 @@
 
 ## 2.1.0
 
+> {note} This release changes the index mapping. After updating, rebuild your indexes (create → reindex → alias-swap) so they pick up the current mapping schema; drift detection flags out-of-date indexes.
+
 ### Added
 
 - Output the source alias and index when cloning an index.
