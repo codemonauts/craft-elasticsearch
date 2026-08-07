@@ -27,6 +27,11 @@
 - Mapping updates no longer fail with an HTTP 400 `illegal_argument_exception` on indexes created by an earlier version. Field mappings no longer send an `analyzer` parameter, which the cluster treats as "leave unchanged" rather than an (illegal) change to an existing field's analyzer.
 - Elasticsearch console commands now fail with a clear "no endpoint configured" message and a non-zero exit code instead of an opaque "Unknown component ID: indexes" error when no endpoint is set.
 - Fixed a typo in the `elastic/migration/truncate-table` command output.
+- The plugin settings page no longer emits a PHP warning when no custom scoring weights are configured.
+- Front-end searches no longer error when the Elasticsearch cluster is unreachable; they return no matches and the failure is logged.
+- Console commands now report a clear message and a non-zero exit code instead of a stack trace when the cluster is unreachable or the connection is misconfigured.
+- The "Elasticsearch Indexes" utility no longer errors out when the cluster is unreachable.
+- Saving elements or fields no longer fails when the queue is unavailable; indexing is queued best-effort and failures are logged.
 
 ## 2.0.0 - 2022-06-15
 

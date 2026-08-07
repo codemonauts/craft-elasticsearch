@@ -160,13 +160,19 @@ class Search extends CraftSearch
             $scoresByElementId = [];
 
             // Loop through results and prepare for return
-            foreach ($results['hits']['hits'] as $row) {
+            foreach (($results['hits']['hits'] ?? []) as $row) {
                 $scoresByElementId[$row['_id']] = $row['_score'];
             }
 
             // Sort found elementIds by score
             arsort($scoresByElementId);
         } catch (BadRequest400Exception) {
+            // Malformed query (usually from user input) — no matches, nothing worth logging.
+            $scoresByElementId = [];
+        } catch (\Throwable $e) {
+            // Cluster unreachable or an unexpected response: never let the search backend take
+            // down the front-end request. Degrade to "no matches" and log for diagnosis.
+            Craft::error('Elasticsearch search failed: ' . $e->getMessage(), 'elastic');
             $scoresByElementId = [];
         }
 

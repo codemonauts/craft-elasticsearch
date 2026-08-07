@@ -5,6 +5,7 @@ namespace codemonauts\elastic\services;
 use codemonauts\elastic\Elastic;
 use codemonauts\elastic\events\BeforeQueryEvent;
 use codemonauts\elastic\models\Settings;
+use Craft;
 use craft\base\Component;
 use craft\base\ElementInterface;
 use craft\models\Site;
@@ -370,7 +371,7 @@ class Elements extends Component
 
         return [
             // Cast to float so string values coming from the settings form are usable as boosts.
-            'default' => array_map('floatval', array_merge(Settings::SCORING_DEFAULTS, $configured['default'] ?? [])),
+            'default' => array_map('floatval', Elastic::$settings->resolvedScoringDefaults()),
             'fields' => $configured['fields'] ?? [],
         ];
     }
@@ -426,7 +427,7 @@ class Elements extends Component
 
         $result = Elastic::$plugin->getElasticsearch()->getClient()->search($params);
 
-        foreach ($result['hits']['hits'] as $row) {
+        foreach (($result['hits']['hits'] ?? []) as $row) {
             $returnValue[] = (int)$row['_id'];
         }
 
@@ -462,6 +463,13 @@ class Elements extends Component
             ];
         }
 
-        return Elastic::$plugin->getElasticsearch()->getClient()->bulk($params);
+        $result = Elastic::$plugin->getElasticsearch()->getClient()->bulk($params);
+
+        if ($result['errors'] ?? false) {
+            // Partial failures don't throw; surface them so a silently-incomplete delete is visible.
+            Craft::error('Some Elasticsearch bulk deletes failed for site ' . $site->id . '.', 'elastic');
+        }
+
+        return $result;
     }
 }

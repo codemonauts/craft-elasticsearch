@@ -6,6 +6,7 @@ use codemonauts\elastic\Elastic;
 use codemonauts\elastic\services\Indexes;
 use Craft;
 use craft\base\Utility;
+use Elasticsearch\Common\Exceptions\ElasticsearchException;
 use Elasticsearch\Common\Exceptions\Missing404Exception;
 
 class IndexUtility extends Utility
@@ -54,7 +55,13 @@ class IndexUtility extends Utility
                     'elements' => $stats['indices'][$indexName]['total']['docs']['count'],
                     'storage' => $stats['indices'][$indexName]['total']['store']['size_in_bytes'],
                 ];
-            } catch (Missing404Exception) {
+            } catch (ElasticsearchException $e) {
+                // Missing404 (no index for this site yet) is expected. Any other Elasticsearch
+                // error — most importantly an unreachable cluster — must not 500 the whole
+                // dashboard; degrade to N/A and log the genuine failures.
+                if (!$e instanceof Missing404Exception) {
+                    Craft::error('Could not read index stats for site ' . $site->id . ': ' . $e->getMessage(), 'elastic');
+                }
                 $indexStatus[] = [
                     'site' => $site,
                     'alias' => 'N/A',
