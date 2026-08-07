@@ -87,6 +87,42 @@ class Search extends CraftSearch
     }
 
     /**
+     * Force Craft to resolve searches via searchElements() (Elasticsearch) even when the
+     * element query is not ordered by score.
+     *
+     * Since Craft 3.7.14 a plain ->search() without ->orderBy('score') is resolved via
+     * createDbQuery() — a subquery against Craft's own DB search index — which bypasses
+     * Elasticsearch entirely. Craft 4.8.0 added this extension point so an alternative
+     * search backend can opt back into the up-front searchElements() path.
+     *
+     * Guard: when this returns true, Craft's ElementQuery::_applySearchParam() reads
+     * $elementQuery->orderBy['score']. That access is unsafe unless orderBy carries a
+     * 'score' key:
+     *   - An unordered query keeps orderBy as its default empty string '' (prepare()
+     *     skips normalizing empty values), so ''['score'] throws a fatal TypeError.
+     *   - An explicitly ordered query has orderBy as an array without a 'score' key, so
+     *     orderBy['score'] is an undefined-key access (a warning, promoted to an exception
+     *     under dev mode).
+     * We therefore ensure a 'score' key exists: for an unordered search that means ranking
+     * by Elasticsearch relevance; for an explicitly ordered search we append score as a
+     * tiebreaker, leaving the caller's ordering as the primary sort. Elasticsearch acts as
+     * the match filter either way.
+     *
+     * @param ElementQuery $elementQuery
+     * @return bool
+     */
+    public function shouldCallSearchElements(ElementQuery $elementQuery): bool
+    {
+        if (empty($elementQuery->orderBy)) {
+            $elementQuery->orderBy = ['score' => SORT_DESC];
+        } elseif (is_array($elementQuery->orderBy) && !isset($elementQuery->orderBy['score'])) {
+            $elementQuery->orderBy['score'] = SORT_DESC;
+        }
+
+        return true;
+    }
+
+    /**
      * @inheritDoc
      */
     public function searchElements(ElementQuery $elementQuery): array
