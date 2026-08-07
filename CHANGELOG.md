@@ -48,6 +48,9 @@
 - The "Elasticsearch Indexes" utility no longer errors out when the cluster is unreachable.
 - Saving elements or fields no longer fails when the queue is unavailable; indexing is queued best-effort and failures are logged.
 - Console commands now report unreadable or malformed files with a clear message instead of a stack trace.
+- `elastic/elements/index` no longer counts and queues elements that never end up in the index. The count included every revision, draft, soft-deleted and archived row of the elements table, so it reported far more elements than were indexed and pushed hundreds of thousands of jobs that indexed nothing.
+- `elastic/elements/index` now resolves the site handle to a site ID. The handle was passed to the element query as-is, which silently matched no elements at all, so indexing a single site indexed nothing.
+- Drafts are no longer written to the index by `elastic/elements/index`. The after-save handler always skipped them, so the console command put content into the index that the regular indexing path never writes.
 
 ## 2.0.0 - 2022-06-15
 
