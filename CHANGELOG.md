@@ -9,12 +9,14 @@
 - The console command to show the source of an element outputs the analyzer result as well.
 - Event to manipulate the search parameters before querying Elasticsearch.
 - Console command `elastic/index/query` to run a search query against an index and output the raw Elasticsearch response with per-hit score explanations (`explain: true`). Takes a search string and an optional result limit.
+- `scoring` setting with per-tier relevance weights (editable on the plugin settings page; optional per-field overrides via `config/elastic.php`), and a `matchBoolPrefix` setting to override the automatic prefix-match capability detection.
 
 ### Changed
 
 - The console command to list aliases and indexes return only relevant entries of the current config now. Added the option `--all` to show all available aliases and indexes again. 
 - The search analyzer, including the language-aware stopword list, is now defined in the index-level `default` slot instead of a named analyzer, and the `analyzer` parameter was removed from all field mappings. Existing indexes keep working unchanged and no data is at risk; the stopword handling only takes effect on indexes created after this update. Drift detection reports pre-existing indexes as `outdated` — rebuild them via the normal create → reindex → alias-swap flow to pick up the new behaviour. Until rebuilt, search behaviour may differ between index generations on the same plugin version.
 - Every text field now has an additive `.exact` keyword subfield (with a lowercasing normalizer) used for exact, whole-value matching and relevance scoring. Existing indexes keep working, but the exact tier only populates after a rebuild; drift detection reports pre-existing indexes as `outdated`.
+- Search scoring is now built from Craft's per-term flags (exact, phrase, sub-word, exclude, attribute) as distinct query clauses instead of a single wildcard `query_string`. Results are ranked by relevance — an exact whole-value match ranks highest — rather than every hit scoring `1`, and OR groups and term exclusion are now handled. Result sets for plain terms are unchanged (only the ordering changes); terms using an exact/attribute flag or a leading `*` may return fewer, more correct results than before. The exact tier requires a rebuilt index.
 
 ### Fixed
 

@@ -127,3 +127,19 @@
     allowReorder: true,
     allowDelete: true
 }) }}
+
+<h2>{{ "Scoring"|t("elastic") }}</h2>
+
+<p class="light">{{ "Relative weight of each match tier when ranking results. Higher weights rank that kind of match higher; set 0 to disable a tier. Which tiers apply to a search is decided by the search term itself, not by these weights. Weights multiply with any field boosts above; per-field weight overrides can be set in config/elastic.php."|t("elastic") }}</p>
+
+{% for tier, weight in scoringWeights %}
+    {{ forms.textField({
+        label: tier|capitalize,
+        instructions: scoringHints[tier] ?? null,
+        id: 'scoring-default-' ~ tier,
+        name: 'scoring[default][' ~ tier ~ ']',
+        value: weight,
+        type: 'number',
+        size: 5
+    }) }}
+{% endfor %}

@@ -183,8 +183,11 @@ class Elastic extends Plugin
      */
     protected function settingsHtml(): ?string
     {
+        /** @var Settings $settings */
+        $settings = $this->getSettings();
+
         return Craft::$app->getView()->renderTemplate('elastic/settings', [
-                'settings' => $this->getSettings(),
+                'settings' => $settings,
                 'authenticationOptions' => [
                     'none' => 'None',
                     'basicauth' => 'BasicAuth',
@@ -199,6 +202,15 @@ class Elastic extends Plugin
                         'heading' => 'Boost*',
                         'type' => 'number',
                     ],
+                ],
+                // Resolved scoring tier weights (configured values merged over the defaults).
+                'scoringWeights' => array_merge(Settings::SCORING_DEFAULTS, $settings->scoring['default'] ?? []),
+                'scoringHints' => [
+                    'exact' => Craft::t('elastic', 'Whole-value match on a field (e.g. an artist named exactly “Abba”).'),
+                    'phrase' => Craft::t('elastic', 'The term matched as a phrase.'),
+                    'token' => Craft::t('elastic', 'A whole-word match — guarantees recall; the other tiers only reorder.'),
+                    'prefix' => Craft::t('elastic', 'A word-prefix match (e.g. “abb” matches “abba”).'),
+                    'wildcard' => Craft::t('elastic', 'A sub-word / wildcard match, only when the term asks for it.'),
                 ],
             ]
         );

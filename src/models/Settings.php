@@ -8,6 +8,18 @@ use craft\base\Model;
 class Settings extends Model
 {
     /**
+     * @var int[] Default scoring weight per match tier. Single source of truth for both the query
+     *            builder (Elements::scoringWeights()) and the settings page.
+     */
+    public const SCORING_DEFAULTS = [
+        'exact' => 50,
+        'phrase' => 10,
+        'token' => 5,
+        'prefix' => 3,
+        'wildcard' => 1,
+    ];
+
+    /**
      * @var bool Running in transition mode. Both, the Craft internal search index and the Elasticsearch index are
      *           filled but only the Craft internal search index will be used for searching.
      */
@@ -65,6 +77,26 @@ class Settings extends Model
      * @var array|null Boosts for fields.
      */
     public ?array $fieldBoosts = null;
+
+    /**
+     * @var array|null Scoring weights per clause tier. `null` uses the defaults in
+     *                 Elements::scoringWeights(). Weights only affect ordering — which clauses
+     *                 exist at all is decided by Craft's term flags, not by this config. A weight
+     *                 of 0 omits that clause. Per-field weights under `fields` override the
+     *                 default for that field and multiply with any configured `fieldBoosts`.
+     *
+     *                 [ 'default' => ['exact'=>50,'phrase'=>10,'token'=>5,'prefix'=>3,'wildcard'=>1],
+     *                   'fields'  => ['artist' => ['exact' => 100]] ]
+     */
+    public ?array $scoring = null;
+
+    /**
+     * @var bool|null Force the match_bool_prefix behaviour. `null` auto-detects cluster support
+     *                (match_bool_prefix requires Elasticsearch 7.2+; all OpenSearch versions
+     *                support it). `true`/`false` force it on/off; when off, prefix scoring falls
+     *                back to match_phrase_prefix.
+     */
+    public ?bool $matchBoolPrefix = null;
 
     /**
      * @inheritdoc
