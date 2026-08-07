@@ -32,12 +32,14 @@ class UpdateElasticsearchIndex extends BaseJob
         $class = $this->elementType;
         $search = Elastic::$plugin->getSearch();
 
+        // Drafts and revisions are deliberately left out: the after-save handler skips them via
+        // ElementHelper::isDraftOrRevision(), so indexing them here would put content into the
+        // index that the regular indexing path never writes. Revisions and trashed elements are
+        // already excluded by the query defaults.
         $elements = $class::find()
-            ->drafts(null)
             ->id($this->elementId)
             ->siteId($this->siteId)
             ->status(null)
-            ->provisionalDrafts(null)
             ->all();
 
         $total = count($elements);

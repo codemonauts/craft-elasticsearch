@@ -10,6 +10,7 @@ use craft\db\Query;
 use craft\db\Table;
 use craft\helpers\Console;
 use yii\base\NotSupportedException;
+use yii\console\ExitCode;
 
 class ElementsController extends BaseController
 {
@@ -29,6 +30,20 @@ class ElementsController extends BaseController
         $queue = Craft::$app->$queue;
         $elementsTable = Table::ELEMENTS;
 
+        // Element queries expect a site ID (or '*'), not a handle — passing the handle through
+        // would silently match no elements at all.
+        if ($siteHandle === '*') {
+            $siteId = '*';
+        } else {
+            $site = Craft::$app->getSites()->getSiteByHandle($siteHandle);
+            if (!$site) {
+                $this->stderr('No site found with the handle "' . $siteHandle . '".' . PHP_EOL, Console::FG_RED);
+
+                return ExitCode::UNSPECIFIED_ERROR;
+            }
+            $siteId = $site->id;
+        }
+
         /**
          * @var ElementInterface $elementType
          */
@@ -39,9 +54,7 @@ class ElementsController extends BaseController
             if (!$elementType::hasTitles() && count($attributes) === 0) {
                 continue;
             }
-            $count = (new Query())->from($elementsTable)->where([
-                'type' => $elementType,
-            ])->count();
+            $count = (new Query())->from($elementsTable)->where($this->indexableCondition($elementType))->count();
 
             if ($this->confirm("Index all $count elements of type '$elementType'? ")) {
                 $elementTypesToIndex[] = $elementType;
@@ -51,9 +64,7 @@ class ElementsController extends BaseController
         foreach ($elementTypesToIndex as $type) {
             $query = (new Query())->select(['id', 'type'])
                 ->from($elementsTable)
-                ->where([
-                    'type' => $type,
-                ])
+                ->where($this->indexableCondition($type))
                 ->orderBy('dateCreated desc');
 
             $total = $query->count();
@@ -68,7 +79,7 @@ class ElementsController extends BaseController
                         $job = new UpdateElasticsearchIndex([
                             'elementType' => $element['type'],
                             'elementId' => $element['id'],
-                            'siteId' => $siteHandle,
+                            'siteId' => $siteId,
                         ]);
                         try {
                             $queue->priority($priority)->push($job);
@@ -77,11 +88,9 @@ class ElementsController extends BaseController
                         }
                     } else {
                         $elementsOfType = $element['type']::find()
-                            ->drafts(null)
                             ->id($element['id'])
-                            ->siteId($siteHandle)
+                            ->siteId($siteId)
                             ->status(null)
-                            ->provisionalDrafts(null)
                             ->all();
 
                         foreach ($elementsOfType as $e) {
@@ -93,5 +102,29 @@ class ElementsController extends BaseController
             }
             Console::endProgress();
         }
+
+        return ExitCode::OK;
+    }
+
+    /**
+     * The condition that selects the rows of an element type that actually end up in the index.
+     *
+     * Craft's elements table holds one row per element, including every revision (up to
+     * `maxRevisions` per canonical element), every draft and every soft-deleted element. Element
+     * queries skip those, so counting or queueing them only produces work that indexes nothing.
+     *
+     * @param string $elementType The element class to build the condition for.
+     *
+     * @return array
+     */
+    private function indexableCondition(string $elementType): array
+    {
+        return [
+            'type' => $elementType,
+            'revisionId' => null,
+            'draftId' => null,
+            'dateDeleted' => null,
+            'archived' => false,
+        ];
     }
 }
