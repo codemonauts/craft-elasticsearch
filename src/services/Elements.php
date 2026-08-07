@@ -4,10 +4,12 @@ namespace codemonauts\elastic\services;
 
 use codemonauts\elastic\Elastic;
 use codemonauts\elastic\events\BeforeQueryEvent;
+use codemonauts\elastic\models\Settings;
 use craft\base\Component;
 use craft\base\ElementInterface;
 use craft\models\Site;
 use craft\search\SearchQuery;
+use craft\search\SearchQueryTerm;
 use craft\search\SearchQueryTermGroup;
 use Exception;
 use stdClass;
@@ -18,6 +20,21 @@ use yii\base\InvalidConfigException;
  */
 class Elements extends Component
 {
+    /**
+     * @var array Resolved scoring configuration (['default' => [...], 'fields' => [...]]) for the
+     *            current search. Set at the start of search().
+     */
+    private array $scoring = [];
+
+    /**
+     * @var array<string, float> Resolved per-field boosts (handle => boost) for the current search.
+     */
+    private array $fieldBoosts = [];
+
+    /**
+     * @var bool Whether the cluster supports match_bool_prefix (else match_phrase_prefix).
+     */
+    private bool $boolPrefix = false;
     /**
      * @event BeforeQueryEvent The event that is triggered before the query is sent to ELasticsearch.
      */
@@ -94,54 +111,38 @@ class Elements extends Component
     public function search(SearchQuery $searchQuery, array $scope, Site $site, bool $explain = false, ?int $size = null): callable|array
     {
         $indexes = Elastic::$plugin->getIndexes();
-        $settings = Elastic::$settings;
 
-        // Get tokens for query
-        $tokens = $searchQuery->getTokens();
+        $this->scoring = $this->scoringWeights();
+        $this->fieldBoosts = $this->fieldBoostMap();
+        $this->boolPrefix = Elastic::$plugin->getElasticsearch()->supportsMatchBoolPrefix();
 
-        // Set Terms and Groups based on tokens
-        $queryTokens = [];
-        foreach ($tokens as $token) {
-            if ($token instanceof SearchQueryTermGroup) {
-                // TODO: Add grouping.
-            } else {
-                // Special case for pasted slugs
-                if (str_contains($token->term, '-')) {
-                    $token->phrase = true;
-                }
-                $queryString = '';
-                if ($token->subLeft && !$token->phrase) {
-                    $queryString .= '*';
-                }
-                if ($token->phrase) {
-                    if ($token->attribute) {
-                        $queryString .= $indexes->mapAttributeToField($token->attribute) . ':';
-                    }
-                    $queryString .= '"' . trim($token->term) . '"';
-                } else {
-                    if ($token->exclude) {
-                        $queryString .= '-';
-                    } else {
-                        $queryString .= '+';
-                    }
-                    if ($token->attribute) {
-                        $queryString .= $indexes->mapAttributeToField($token->attribute) . ':';
-                    }
-                    $queryString .= trim($token->term);
-                }
-                if ($token->subRight && !$token->phrase) {
-                    $queryString .= '*';
-                }
-                $queryTokens[] = $queryString;
+        // Build one clause per term from Craft's flags. Top-level tokens are AND-ed (must); an
+        // excluded term goes to must_not and contributes no score; an OR group becomes a nested
+        // bool with minimum_should_match:1.
+        $must = [];
+        $mustNot = [];
+        foreach ($searchQuery->getTokens() as $token) {
+            if ($token instanceof SearchQueryTerm && $token->exclude) {
+                $mustNot[] = $this->buildClause($token);
+                continue;
+            }
+
+            $clause = $this->buildNode($token, $mustNot);
+            if ($clause !== null) {
+                $must[] = $clause;
             }
         }
 
-        // Add boosts
-        $fields = ['*'];
-        if (is_array($settings->fieldBoosts)) {
-            foreach ($settings->fieldBoosts as $field) {
-                $fields[] = $indexes->mapAttributeToField($field['handle']) . '^' . $field['boost'];
-            }
+        $bool = [];
+        if (!empty($must)) {
+            $bool['must'] = $must;
+        }
+        if (!empty($mustNot)) {
+            $bool['must_not'] = $mustNot;
+        }
+        if (empty($bool)) {
+            // Empty query: match everything (the scope filter below still applies).
+            $bool['must'] = [['match_all' => new stdClass()]];
         }
 
         $params = [
@@ -149,14 +150,7 @@ class Elements extends Component
             'body' => [
                 'size' => $size ?? 10000,
                 'query' => [
-                    'bool' => [
-                        'must' => [
-                            'query_string' => [
-                                'fields' => $fields,
-                                'query' => implode(' ', $queryTokens),
-                            ],
-                        ],
-                    ],
+                    'bool' => $bool,
                 ],
             ],
         ];
@@ -183,6 +177,228 @@ class Elements extends Component
         $params = $event->params;
 
         return Elastic::$plugin->getElasticsearch()->getClient()->search($params);
+    }
+
+    /**
+     * Builds the clause for a token — a term or an OR group. Excluded terms inside a group are
+     * hoisted to $mustNot (absolute exclusion). Recurses so a group containing a group works.
+     *
+     * @param SearchQueryTerm|SearchQueryTermGroup $node
+     * @param array $mustNot
+     * @return array|null
+     * @throws InvalidConfigException
+     */
+    private function buildNode(SearchQueryTerm|SearchQueryTermGroup $node, array &$mustNot): ?array
+    {
+        if ($node instanceof SearchQueryTermGroup) {
+            $should = [];
+            foreach ($node->terms as $member) {
+                if ($member instanceof SearchQueryTerm && $member->exclude) {
+                    $mustNot[] = $this->buildClause($member);
+                    continue;
+                }
+
+                $clause = $this->buildNode($member, $mustNot);
+                if ($clause !== null) {
+                    $should[] = $clause;
+                }
+            }
+
+            return empty($should) ? null : ['bool' => ['minimum_should_match' => 1, 'should' => $should]];
+        }
+
+        return $this->buildClause($node);
+    }
+
+    /**
+     * Builds the query clause for a single term from its flags. `exact` and `phrase` are terminal;
+     * everything else is a bool(minimum_should_match:1) where the token clause guarantees recall and
+     * the narrower clauses only add score on top.
+     *
+     * @param SearchQueryTerm $term
+     * @return array
+     * @throws InvalidConfigException
+     */
+    private function buildClause(SearchQueryTerm $term): array
+    {
+        $termText = (string)$term->term;
+        $onlyHandle = $term->attribute ?: null;
+
+        // exact flag -> terminal exact match on the keyword subfield(s). Flag-mandated, so it is
+        // emitted even when the exact weight is 0 (0 only omits the optional scoring tiers).
+        if ($term->exact) {
+            $clauses = $this->tierClauses('exact', $onlyHandle, fn(array $fields, $boost) => $this->exactClause($termText, $fields, $boost));
+            if (empty($clauses)) {
+                $clauses[] = $this->exactClause($termText, $this->tierFields('exact', $onlyHandle), 1);
+            }
+
+            return $this->anyOf($clauses);
+        }
+
+        // Preserve the pasted-slug behaviour: a hyphenated term is matched as a phrase.
+        if ($term->phrase || str_contains($termText, '-')) {
+            $clauses = $this->tierClauses('phrase', $onlyHandle, fn(array $fields, $boost) => [
+                'multi_match' => ['query' => $termText, 'type' => 'phrase', 'fields' => $fields, 'boost' => $boost],
+            ]);
+            if (empty($clauses)) {
+                $clauses[] = ['multi_match' => ['query' => $termText, 'type' => 'phrase', 'fields' => $this->tierFields('phrase', $onlyHandle)]];
+            }
+
+            return $this->anyOf($clauses);
+        }
+
+        // Recall via the token clause; exact/prefix/wildcard add score on top.
+        $should = [];
+        $should = array_merge($should, $this->tierClauses('exact', $onlyHandle, fn(array $fields, $boost) => $this->exactClause($termText, $fields, $boost)));
+        $should = array_merge($should, $this->tierClauses('token', $onlyHandle, fn(array $fields, $boost) => [
+            'multi_match' => ['query' => $termText, 'fields' => $fields, 'boost' => $boost],
+        ]));
+
+        if ($term->subLeft) {
+            $should = array_merge($should, $this->tierClauses('wildcard', $onlyHandle, fn(array $fields, $boost) => [
+                'query_string' => ['query' => '*' . $this->escape($termText) . '*', 'fields' => $fields, 'boost' => $boost],
+            ]));
+        } elseif ($term->subRight) {
+            $type = $this->boolPrefix ? 'bool_prefix' : 'phrase_prefix';
+            $should = array_merge($should, $this->tierClauses('prefix', $onlyHandle, fn(array $fields, $boost) => [
+                'multi_match' => ['query' => $termText, 'fields' => $fields, 'type' => $type, 'boost' => $boost],
+            ]));
+        }
+
+        if (empty($should)) {
+            // Every scoring tier disabled: keep recall so the term still restricts results.
+            $should[] = ['multi_match' => ['query' => $termText, 'fields' => $this->tierFields('token', $onlyHandle)]];
+        }
+
+        return ['bool' => ['minimum_should_match' => 1, 'should' => $should]];
+    }
+
+    /**
+     * Wraps clauses so any one may match, or returns a single clause directly.
+     */
+    private function anyOf(array $clauses): array
+    {
+        return count($clauses) === 1 ? $clauses[0] : ['bool' => ['minimum_should_match' => 1, 'should' => $clauses]];
+    }
+
+    /**
+     * The exact-match clause on the keyword subfield(s). The term is lowercased on the query side to
+     * match the index-time lowercase normalizer; keyword fields do no analysis.
+     */
+    private function exactClause(string $term, array $fields, float|int $boost = 1): array
+    {
+        return ['multi_match' => ['query' => mb_strtolower($term), 'fields' => $fields, 'boost' => $boost]];
+    }
+
+    /**
+     * Builds the clauses for one scoring tier: a base clause across all applicable fields at the
+     * default tier weight, plus per-field emphasis clauses for any `scoring.fields` overrides. A
+     * weight of 0 omits the clause; per-field weights multiply with the configured field boost.
+     *
+     * @param string $tier
+     * @param string|null $onlyHandle Restrict to this single attribute/handle (attribute-scoped term).
+     * @param callable $make fn(array $fields, float|int $boost): array
+     * @return array
+     * @throws InvalidConfigException
+     */
+    private function tierClauses(string $tier, ?string $onlyHandle, callable $make): array
+    {
+        $clauses = [];
+
+        $default = $this->scoring['default'][$tier] ?? 0;
+        if ($default > 0) {
+            $fields = $this->tierFields($tier, $onlyHandle);
+            if (!empty($fields)) {
+                $clauses[] = $make($fields, $default);
+            }
+        }
+
+        $indexes = Elastic::$plugin->getIndexes();
+        foreach ($this->scoring['fields'] ?? [] as $handle => $weights) {
+            if ($onlyHandle !== null && $handle !== $onlyHandle) {
+                continue;
+            }
+            $weight = $weights[$tier] ?? null;
+            if ($weight === null || $weight <= 0) {
+                continue;
+            }
+            $boost = $weight * ($this->fieldBoosts[$handle] ?? 1);
+            if ($boost <= 0) {
+                continue;
+            }
+            $name = $indexes->mapAttributeToField($handle);
+            $field = $tier === 'exact' ? [$name . '.exact'] : [$name];
+            $clauses[] = $make($field, $boost);
+        }
+
+        return $clauses;
+    }
+
+    /**
+     * The default field set for a tier: all fields via a wildcard plus any configured field boosts,
+     * or the single resolved field when the term is attribute-scoped. The `exact` tier targets the
+     * `.exact` keyword subfields — the suffix goes before the caret in `field^boost`.
+     *
+     * @throws InvalidConfigException
+     */
+    private function tierFields(string $tier, ?string $onlyHandle): array
+    {
+        $indexes = Elastic::$plugin->getIndexes();
+        $exact = $tier === 'exact';
+
+        if ($onlyHandle !== null) {
+            $name = $indexes->mapAttributeToField($onlyHandle);
+
+            return [$exact ? $name . '.exact' : $name];
+        }
+
+        $fields = [$exact ? '*.exact' : '*'];
+        foreach ($this->fieldBoosts as $handle => $boost) {
+            $name = $indexes->mapAttributeToField($handle);
+            $fields[] = ($exact ? $name . '.exact' : $name) . '^' . $boost;
+        }
+
+        return $fields;
+    }
+
+    /**
+     * Resolves the scoring configuration, filling in the default tier weights.
+     */
+    private function scoringWeights(): array
+    {
+        $configured = is_array(Elastic::$settings->scoring) ? Elastic::$settings->scoring : [];
+
+        return [
+            // Cast to float so string values coming from the settings form are usable as boosts.
+            'default' => array_map('floatval', array_merge(Settings::SCORING_DEFAULTS, $configured['default'] ?? [])),
+            'fields' => $configured['fields'] ?? [],
+        ];
+    }
+
+    /**
+     * The configured per-field boosts as a handle => boost map.
+     */
+    private function fieldBoostMap(): array
+    {
+        $boosts = [];
+        if (is_array(Elastic::$settings->fieldBoosts)) {
+            foreach (Elastic::$settings->fieldBoosts as $entry) {
+                if (isset($entry['handle'], $entry['boost'])) {
+                    $boosts[$entry['handle']] = (float)$entry['boost'];
+                }
+            }
+        }
+
+        return $boosts;
+    }
+
+    /**
+     * Escapes Lucene query-string special characters in a term. Only the query_string wildcard clause
+     * needs this; multi_match/match take the term verbatim.
+     */
+    private function escape(string $term): string
+    {
+        return preg_replace('/[+\-=&|!(){}\[\]^"~*?:\\\\\/<>]/', '\\\\$0', $term);
     }
 
     /**
