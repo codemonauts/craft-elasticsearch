@@ -2,7 +2,7 @@
 
 ## 3.0.0
 
-> {note} This is the first Craft CMS 5 release. It requires Craft CMS 5 and PHP 8.2+. After updating, rebuild your indexes (create → reindex → alias-swap) so they pick up the current mapping schema; drift detection flags out-of-date indexes.
+> {note} This is the first Craft CMS 5 release. It requires Craft CMS 5 and PHP 8.2+.
 
 ### Added
 
@@ -13,6 +13,8 @@
 - Requires Craft CMS 5 and PHP 8.2 or later.
 
 ## 2.1.0
+
+> {note} This release changes the index mapping. After updating, rebuild your indexes (create → reindex → alias-swap) so they pick up the current mapping schema; drift detection flags out-of-date indexes.
 
 ### Added
 
