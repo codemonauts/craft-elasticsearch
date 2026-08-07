@@ -12,12 +12,11 @@ use craft\models\Site;
 use craft\search\SearchQuery;
 use Elasticsearch\Common\Exceptions\Missing404Exception;
 use yii\base\InvalidConfigException;
-use yii\console\Controller;
 use yii\console\ExitCode;
 use yii\console\widgets\Table;
 use yii\helpers\BaseConsole;
 
-class IndexController extends Controller
+class IndexController extends BaseController
 {
     public $defaultAction = 'stats';
 
