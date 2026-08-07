@@ -140,4 +140,17 @@ class Settings extends Model
             $this->addError($attribute, Craft::t('elastic', 'Invalid authentication method.'));
         }
     }
+
+    /**
+     * Resolves the scoring tier weights: the configured `default` weights merged over
+     * SCORING_DEFAULTS. Single source for the settings page and the query builder.
+     *
+     * @return int[]
+     */
+    public function resolvedScoringDefaults(): array
+    {
+        $scoring = is_array($this->scoring) ? $this->scoring : [];
+
+        return array_merge(self::SCORING_DEFAULTS, $scoring['default'] ?? []);
+    }
 }
