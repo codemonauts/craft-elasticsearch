@@ -4,6 +4,7 @@ namespace codemonauts\elastic\models;
 
 use Craft;
 use craft\base\Model;
+use craft\helpers\App;
 
 class Settings extends Model
 {
@@ -18,6 +19,12 @@ class Settings extends Model
         'prefix' => 3,
         'wildcard' => 1,
     ];
+
+    /**
+     * @var string[] Valid authentication methods. Single source of truth for the settings page
+     *               suggestions and the validation rule.
+     */
+    public const AUTHENTICATION_METHODS = ['none', 'basicauth', 'aws'];
 
     /**
      * @var bool Running in transition mode. Both, the Craft internal search index and the Elasticsearch index are
@@ -105,9 +112,32 @@ class Settings extends Model
     {
         return [
             [['endpoint', 'indexName', 'fieldPrefix'], 'required'],
+            ['authentication', 'validateAuthentication'],
             ['region', 'required', 'when' => function($model) {
-                return $model->authentication === 'aws';
+                return App::parseEnv($model->authentication) === 'aws';
             }, 'message' => Craft::t('elastic', 'Region cannot be blank when using AWS.')],
         ];
+    }
+
+    /**
+     * Validates the authentication method. Environment variable and alias references (starting with
+     * `$` or `@`) are resolved at runtime, so they are accepted as-is; any other value must be one
+     * of the known methods.
+     */
+    public function validateAuthentication(string $attribute): void
+    {
+        $value = $this->$attribute;
+
+        if ($value === null || $value === '') {
+            return;
+        }
+
+        if (str_starts_with($value, '$') || str_starts_with($value, '@')) {
+            return;
+        }
+
+        if (!in_array($value, self::AUTHENTICATION_METHODS, true)) {
+            $this->addError($attribute, Craft::t('elastic', 'Invalid authentication method.'));
+        }
     }
 }

@@ -91,7 +91,7 @@ class Elastic extends Plugin
                 'hosts' => [
                     App::parseEnv(self::$settings->endpoint),
                 ],
-                'authentication' => self::$settings->authentication,
+                'authentication' => App::parseEnv(self::$settings->authentication),
                 'username' => App::parseEnv(self::$settings->username),
                 'password' => App::parseEnv(self::$settings->password),
                 'region' => App::parseEnv(self::$settings->region),
@@ -188,10 +188,15 @@ class Elastic extends Plugin
 
         return Craft::$app->getView()->renderTemplate('elastic/settings', [
                 'settings' => $settings,
-                'authenticationOptions' => [
-                    'none' => 'None',
-                    'basicauth' => 'BasicAuth',
-                    'aws' => 'AWS',
+                'authenticationSuggestions' => [
+                    [
+                        'label' => Craft::t('elastic', 'Methods'),
+                        'data' => [
+                            ['name' => 'none', 'hint' => Craft::t('elastic', 'No authentication')],
+                            ['name' => 'basicauth', 'hint' => Craft::t('elastic', 'Username & password')],
+                            ['name' => 'aws', 'hint' => Craft::t('elastic', 'AWS IAM credentials')],
+                        ],
+                    ],
                 ],
                 'boostsCols' => [
                     'handle' => [
