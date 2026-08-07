@@ -32,8 +32,15 @@ class Elastic extends Plugin
 {
     /**
      * @var int The mapping schema version stamped into every index this plugin creates.
+     *
+     * Increment whenever buildMapping() or buildSettings() change in a way that requires a
+     * reindex; drift detection compares this against each index's stamp.
+     *
+     * v2: the analyzer moved to the index-level "default" slot and was removed from field
+     *     mappings. Existing indexes keep working, but a rebuild is required to pick up the
+     *     language-aware stopword handling.
      */
-    public const MAPPING_VERSION = 1;
+    public const MAPPING_VERSION = 2;
 
     /**
      * @var Elastic|null

@@ -12,10 +12,12 @@
 ### Changed
 
 - The console command to list aliases and indexes return only relevant entries of the current config now. Added the option `--all` to show all available aliases and indexes again. 
+- The search analyzer, including the language-aware stopword list, is now defined in the index-level `default` slot instead of a named analyzer, and the `analyzer` parameter was removed from all field mappings. Existing indexes keep working unchanged and no data is at risk; the stopword handling only takes effect on indexes created after this update. Drift detection reports pre-existing indexes as `outdated` — rebuild them via the normal create → reindex → alias-swap flow to pick up the new behaviour. Until rebuilt, search behaviour may differ between index generations on the same plugin version.
 
 ### Fixed
 
 - Pasted slugs now find the corresponding element.
+- Mapping updates no longer fail with an HTTP 400 `illegal_argument_exception` on indexes created by an earlier version. Field mappings no longer send an `analyzer` parameter, which the cluster treats as "leave unchanged" rather than an (illegal) change to an existing field's analyzer.
 
 ## 2.0.0 - 2022-06-15
 
