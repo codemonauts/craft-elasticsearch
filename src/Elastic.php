@@ -107,7 +107,7 @@ class Elastic extends Plugin
 
         // When in transition mode, add event to update Elasticsearch indexes as well.
         if (self::$settings->transition) {
-            Craft::$app->elements->on(Elements::EVENT_AFTER_SAVE_ELEMENT, function (ElementEvent $event) {
+            Craft::$app->elements->on(Elements::EVENT_AFTER_SAVE_ELEMENT, function(ElementEvent $event) {
                 $element = $event->element;
                 $elementType = get_class($element);
 
@@ -123,17 +123,17 @@ class Elastic extends Plugin
         }
 
         // Register event when changing field definitions
-        Craft::$app->fields->on(Fields::EVENT_AFTER_SAVE_FIELD, function () {
+        Craft::$app->fields->on(Fields::EVENT_AFTER_SAVE_FIELD, function() {
             Craft::$app->queue->push(new UpdateMapping());
         });
 
         // Register utilities
-        Craft::$app->getUtilities()->on(Utilities::EVENT_REGISTER_UTILITY_TYPES, function (RegisterComponentTypesEvent $event) {
+        Craft::$app->getUtilities()->on(Utilities::EVENT_REGISTER_UTILITY_TYPES, function(RegisterComponentTypesEvent $event) {
             $event->types[] = IndexUtility::class;
         });
 
         // Register settings event
-        $this->on(Plugin::EVENT_BEFORE_SAVE_SETTINGS, function (ModelEvent $event) {
+        $this->on(Plugin::EVENT_BEFORE_SAVE_SETTINGS, function(ModelEvent $event) {
             $settings = $event->sender->getSettings();
 
             // Mode has changed

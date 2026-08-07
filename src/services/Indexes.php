@@ -759,7 +759,7 @@ class Indexes extends Component
             $fieldNeedle = $fieldPrefix . 'field_';
             if (str_starts_with($fieldName, $attributeNeedle)) {
                 $this->fieldToAttribute[$fieldName] = substr($fieldName, strlen($attributeNeedle));
-            } else if (str_starts_with($fieldName, $fieldNeedle)) {
+            } elseif (str_starts_with($fieldName, $fieldNeedle)) {
                 $id = (int)substr($fieldName, strlen($fieldNeedle));
                 $field = Craft::$app->getFields()->getFieldById($id);
                 if (!$field) {

@@ -4,16 +4,16 @@ namespace codemonauts\elastic\console\controllers;
 
 use codemonauts\elastic\Elastic;
 use codemonauts\elastic\services\Indexes;
+use Craft;
+use craft\errors\SiteNotFoundException;
 use craft\helpers\Console;
 use craft\helpers\DateTimeHelper;
 use craft\models\Site;
 use craft\search\SearchQuery;
-use yii\console\ExitCode;
 use Elasticsearch\Common\Exceptions\Missing404Exception;
 use yii\base\InvalidConfigException;
 use yii\console\Controller;
-use Craft;
-use craft\errors\SiteNotFoundException;
+use yii\console\ExitCode;
 use yii\console\widgets\Table;
 use yii\helpers\BaseConsole;
 
@@ -175,7 +175,6 @@ class IndexController extends Controller
         $hint = false;
 
         foreach ($sites as $site) {
-
             $currentIndex = $indexService->getCurrentIndex($site);
 
             if (!$this->confirm('Do you want to reindex the source of the current index "' . $currentIndex . '" for the site with the handle "' . $site->handle . '" to a new index?')) {
@@ -222,7 +221,6 @@ class IndexController extends Controller
         $sites = $this->_getSites($siteHandle);
 
         foreach ($sites as $site) {
-
             $sourceExists = $indexService->aliasExists($sourceIndexName);
 
             if (!$sourceExists) {
