@@ -39,8 +39,11 @@ class Elastic extends Plugin
      * v2: the analyzer moved to the index-level "default" slot and was removed from field
      *     mappings. Existing indexes keep working, but a rebuild is required to pick up the
      *     language-aware stopword handling.
+     * v3: every text field gained an ".exact" keyword subfield (with a lowercasing
+     *     normalizer) for exact, whole-value matching and scoring. Existing indexes keep
+     *     working, but the exact tier only populates after a rebuild.
      */
-    public const MAPPING_VERSION = 2;
+    public const MAPPING_VERSION = 3;
 
     /**
      * @var Elastic|null

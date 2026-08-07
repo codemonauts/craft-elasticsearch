@@ -594,15 +594,29 @@ class Indexes extends Component
         $fieldPrefix = Elastic::$settings->fieldPrefix;
         $mapping = [];
 
+        // Every searchable field is a text field with an additive ".exact" keyword subfield.
+        // The subfield enables exact, whole-value matching (used for scoring and title::exact
+        // queries); "ignore_above" drops values longer than 256 chars, so it stays cheap even
+        // on large body-text fields. Adding a subfield is legal against existing indexes, but
+        // existing documents only populate it after a rebuild.
+        $textField = [
+            'type' => 'text',
+            'fields' => [
+                'exact' => [
+                    'type' => 'keyword',
+                    'normalizer' => 'lowercase_normalizer',
+                    'ignore_above' => 256,
+                ],
+            ],
+        ];
+
         $predefinedAttributes = [
             'title',
             'slug',
         ];
 
         foreach ($predefinedAttributes as $attribute) {
-            $mapping[$fieldPrefix . 'attribute_' . $attribute] = [
-                'type' => 'text',
-            ];
+            $mapping[$fieldPrefix . 'attribute_' . $attribute] = $textField;
         }
 
         /**
@@ -611,18 +625,14 @@ class Indexes extends Component
         $elementTypes = Craft::$app->elements->getAllElementTypes();
         foreach ($elementTypes as $elementType) {
             foreach ($elementType::searchableAttributes() as $attribute) {
-                $mapping[$fieldPrefix . 'attribute_' . $attribute] = [
-                    'type' => 'text',
-                ];
+                $mapping[$fieldPrefix . 'attribute_' . $attribute] = $textField;
             }
         }
 
         $fields = Craft::$app->getFields()->getAllFields();
         foreach ($fields as $field) {
             if ($field->searchable) {
-                $mapping[$fieldPrefix . 'field_' . $field->id] = [
-                    'type' => 'text',
-                ];
+                $mapping[$fieldPrefix . 'field_' . $field->id] = $textField;
             }
         }
 
@@ -643,6 +653,15 @@ class Indexes extends Component
                     "default" => [
                         "type" => "standard",
                         "stopwords" => $language,
+                    ],
+                ],
+                "normalizer" => [
+                    // Lowercasing normalizer for the keyword ".exact" subfields, so an exact
+                    // match is case-insensitive (e.g. "Abba" matches "abba"). There is no
+                    // built-in normalizer named "lowercase", so it must be defined here.
+                    "lowercase_normalizer" => [
+                        "type" => "custom",
+                        "filter" => ["lowercase"],
                     ],
                 ],
             ],
