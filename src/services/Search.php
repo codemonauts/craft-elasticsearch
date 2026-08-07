@@ -153,14 +153,8 @@ class Search extends CraftSearch
             ]));
         }
 
-        // Do the search
-        if ($elementQuery !== null) {
-            $validIds = $elementQuery->ids();
-        } else if (!empty($elementIds)) {
-            $validIds = $elementIds;
-        } else {
-            $validIds = [];
-        }
+        // Restrict the Elasticsearch search to the IDs the element query already matched.
+        $validIds = $elementQuery->ids();
         try {
             $results = Elastic::$plugin->getElements()->search($searchQuery, $validIds, $site);
             $scoresByElementId = [];
