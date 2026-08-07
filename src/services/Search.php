@@ -47,14 +47,13 @@ class Search extends CraftSearch
             throw new SiteNotFoundException();
         }
 
-        // Figure out which fields to update, and which to ignore
+        // Figure out which fields to update, and which to ignore. Every Craft 5 element can carry
+        // a field layout, so there is no hasContent() gate any more.
         /** @var FieldInterface[] $updateFields */
         $updateFields = [];
-        if ($element::hasContent() && ($fieldLayout = $element->getFieldLayout()) !== null) {
-            foreach ($fieldLayout->getCustomFields() as $field) {
-                if ($field->searchable) {
-                    $updateFields[] = $field;
-                }
+        foreach ($element->getFieldLayout()?->getCustomFields() ?? [] as $field) {
+            if ($field->searchable) {
+                $updateFields[] = $field;
             }
         }
 
@@ -153,14 +152,8 @@ class Search extends CraftSearch
             ]));
         }
 
-        // Do the search
-        if ($elementQuery !== null) {
-            $validIds = $elementQuery->ids();
-        } else if (!empty($elementIds)) {
-            $validIds = $elementIds;
-        } else {
-            $validIds = [];
-        }
+        // Restrict the Elasticsearch search to the IDs the element query already matched.
+        $validIds = $elementQuery->ids();
         try {
             $results = Elastic::$plugin->getElements()->search($searchQuery, $validIds, $site);
             $scoresByElementId = [];

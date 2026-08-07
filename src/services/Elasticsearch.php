@@ -72,12 +72,12 @@ class Elasticsearch extends Component
                     ->setHandler($handler)
                     ->setHosts($this->hosts)
                     ->build();
-            } else if ($this->authentication === 'basicauth') {
+            } elseif ($this->authentication === 'basicauth') {
                 $this->client = ClientBuilder::create()
                     ->setHosts($this->hosts)
                     ->setBasicAuthentication($this->username, $this->password)
                     ->build();
-            } else if ($this->authentication === 'none') {
+            } elseif ($this->authentication === 'none') {
                 $this->client = ClientBuilder::create()
                     ->setHosts($this->hosts)
                     ->build();

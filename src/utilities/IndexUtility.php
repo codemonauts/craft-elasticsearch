@@ -29,7 +29,7 @@ class IndexUtility extends Utility
     /**
      * @inheritdoc
      */
-    public static function iconPath(): ?string
+    public static function icon(): ?string
     {
         return Craft::getAlias('@codemonauts/elastic/icon-mask.svg');
     }

@@ -105,10 +105,9 @@ class Settings extends Model
     {
         return [
             [['endpoint', 'indexName', 'fieldPrefix'], 'required'],
-            ['region', 'required', 'when' => function ($model) {
+            ['region', 'required', 'when' => function($model) {
                 return $model->authentication === 'aws';
             }, 'message' => Craft::t('elastic', 'Region cannot be blank when using AWS.')],
         ];
     }
-
 }
