@@ -1,7 +1,6 @@
 {
   "name": "codemonauts/craft-elasticsearch",
   "description": "Replace Craft's database full-text search with Elasticsearch.",
-  "version": "2.0.0",
   "type": "craft-plugin",
   "keywords": [
     "craft",
