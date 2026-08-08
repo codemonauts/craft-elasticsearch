@@ -7,6 +7,9 @@ use Craft;
 use craft\db\Table;
 use craft\queue\BaseJob;
 
+/**
+ * Removes documents from the indexes whose element no longer exists in Craft.
+ */
 class DeleteOrphanedIndexes extends BaseJob
 {
     /**

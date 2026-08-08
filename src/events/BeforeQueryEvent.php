@@ -4,6 +4,9 @@ namespace codemonauts\elastic\events;
 
 use yii\base\Event;
 
+/**
+ * Carries the query parameters before they are sent to Elasticsearch.
+ */
 class BeforeQueryEvent extends Event
 {
     /**

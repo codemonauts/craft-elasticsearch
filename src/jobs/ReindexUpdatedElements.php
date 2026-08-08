@@ -9,6 +9,9 @@ use craft\helpers\Db;
 use craft\queue\BaseJob;
 use DateTime;
 
+/**
+ * Reindexes all elements updated since a given date, to the database index, Elasticsearch or both.
+ */
 class ReindexUpdatedElements extends BaseJob
 {
     /**

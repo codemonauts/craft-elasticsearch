@@ -9,6 +9,9 @@ use craft\base\Utility;
 use Elasticsearch\Common\Exceptions\ElasticsearchException;
 use Elasticsearch\Common\Exceptions\Missing404Exception;
 
+/**
+ * Control panel utility showing the state of the indexes.
+ */
 class IndexUtility extends Utility
 {
     /**

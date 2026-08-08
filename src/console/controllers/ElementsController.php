@@ -12,6 +12,9 @@ use craft\helpers\Console;
 use yii\base\NotSupportedException;
 use yii\console\ExitCode;
 
+/**
+ * Commands to index elements.
+ */
 class ElementsController extends BaseController
 {
     /**

@@ -23,6 +23,7 @@ use craft\services\Elements;
 use craft\services\Fields;
 use craft\services\Utilities;
 use craft\web\Controller;
+use yii\base\InvalidConfigException;
 
 /**
  * @property Elasticsearch $elasticsearch
@@ -245,21 +246,45 @@ class Elastic extends Plugin
         );
     }
 
+    /**
+     * Returns the Elasticsearch client service.
+     *
+     * @return Elasticsearch
+     * @throws InvalidConfigException
+     */
     public function getElasticsearch(): Elasticsearch
     {
         return $this->get('elasticsearch');
     }
 
+    /**
+     * Returns the index service.
+     *
+     * @return Indexes
+     * @throws InvalidConfigException
+     */
     public function getIndexes(): Indexes
     {
         return $this->get('indexes');
     }
 
+    /**
+     * Returns the search service.
+     *
+     * @return Search
+     * @throws InvalidConfigException
+     */
     public function getSearch(): Search
     {
         return $this->get('search');
     }
 
+    /**
+     * Returns the element indexing service.
+     *
+     * @return services\Elements
+     * @throws InvalidConfigException
+     */
     public function getElements(): services\Elements
     {
         return $this->get('elements');
@@ -268,6 +293,8 @@ class Elastic extends Plugin
     /**
      * Whether an Elasticsearch endpoint is configured. The search components are only registered
      * when this is true (see init()).
+     *
+     * @return bool
      */
     public function isConfigured(): bool
     {

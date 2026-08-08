@@ -42,8 +42,9 @@ class Elements extends Component
      *           search(); false makes the query fall back to the wildcard over all fields.
      */
     private bool $catchAll = false;
+
     /**
-     * @event BeforeQueryEvent The event that is triggered before the query is sent to ELasticsearch.
+     * @event BeforeQueryEvent The event that is triggered before the query is sent to Elasticsearch.
      */
     public const EVENT_BEFORE_QUERY = 'beforeQuery';
 
@@ -79,9 +80,10 @@ class Elements extends Component
     }
 
     /**
-     * Delete an element from an index.
+     * Deletes an element from a site's index.
      *
-     * @param int $elementId The element to delete from all indexes.
+     * @param int $elementId The element to delete.
+     * @param Site $site The site whose index to delete it from.
      *
      * @throws Exception
      */
@@ -283,6 +285,10 @@ class Elements extends Component
 
     /**
      * Wraps clauses so any one may match, or returns a single clause directly.
+     *
+     * @param array $clauses
+     *
+     * @return array
      */
     private function anyOf(array $clauses): array
     {
@@ -292,6 +298,12 @@ class Elements extends Component
     /**
      * The exact-match clause on the keyword subfield(s). The term is lowercased on the query side to
      * match the index-time lowercase normalizer; keyword fields do no analysis.
+     *
+     * @param string $term
+     * @param array $fields
+     * @param float|int $boost
+     *
+     * @return array
      */
     private function exactClause(string $term, array $fields, float|int $boost = 1): array
     {
@@ -347,6 +359,10 @@ class Elements extends Component
      * or the single resolved field when the term is attribute-scoped. The `exact` tier targets the
      * `.exact` keyword subfields — the suffix goes before the caret in `field^boost`.
      *
+     * @param string $tier
+     * @param string|null $onlyHandle Restrict to this single attribute/handle (attribute-scoped term).
+     *
+     * @return array
      * @throws InvalidConfigException
      */
     private function tierFields(string $tier, ?string $onlyHandle): array
@@ -380,6 +396,8 @@ class Elements extends Component
 
     /**
      * Resolves the scoring configuration, filling in the default tier weights.
+     *
+     * @return array
      */
     private function scoringWeights(): array
     {
@@ -394,6 +412,8 @@ class Elements extends Component
 
     /**
      * The configured per-field boosts as a handle => boost map.
+     *
+     * @return array<string, float>
      */
     private function fieldBoostMap(): array
     {
@@ -412,6 +432,10 @@ class Elements extends Component
     /**
      * Escapes Lucene query-string special characters in a term. Only the query_string wildcard clause
      * needs this; multi_match/match take the term verbatim.
+     *
+     * @param string $term
+     *
+     * @return string
      */
     private function escape(string $term): string
     {

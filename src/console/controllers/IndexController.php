@@ -15,8 +15,14 @@ use yii\base\InvalidConfigException;
 use yii\console\ExitCode;
 use yii\console\widgets\Table;
 
+/**
+ * Commands to inspect and maintain the indexes.
+ */
 class IndexController extends BaseController
 {
+    /**
+     * @inheritdoc
+     */
     public $defaultAction = 'stats';
 
     /**

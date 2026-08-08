@@ -6,6 +6,9 @@ use codemonauts\elastic\Elastic;
 use Craft;
 use craft\queue\BaseJob;
 
+/**
+ * Pushes the current field mapping to every site's index.
+ */
 class UpdateMapping extends BaseJob
 {
     /**
