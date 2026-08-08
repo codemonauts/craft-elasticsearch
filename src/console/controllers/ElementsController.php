@@ -47,11 +47,10 @@ class ElementsController extends BaseController
             $siteId = $site->id;
         }
 
-        /**
-         * @var ElementInterface $elementType
-         */
         $elementTypesToIndex = [];
         $elementTypes = Craft::$app->elements->getAllElementTypes();
+
+        /** @var class-string<ElementInterface> $elementType */
         foreach ($elementTypes as $elementType) {
             $attributes = $elementType::searchableAttributes();
             if (!$elementType::hasTitles() && count($attributes) === 0) {

@@ -75,7 +75,9 @@ class Elastic extends Plugin
 
         self::$plugin = $this;
 
-        self::$settings = self::$plugin->getSettings();
+        /** @var Settings $settings */
+        $settings = self::$plugin->getSettings();
+        self::$settings = $settings;
 
         // If no endpoint is set, do nothing.
         if (App::parseEnv(self::$settings->endpoint) === '') {
