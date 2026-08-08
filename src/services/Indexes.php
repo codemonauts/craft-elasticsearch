@@ -987,10 +987,9 @@ class Indexes extends Component
             $mapping[$fieldPrefix . 'attribute_' . $attribute] = $textField;
         }
 
-        /**
-         * @var ElementInterface $elementType
-         */
         $elementTypes = Craft::$app->elements->getAllElementTypes();
+
+        /** @var class-string<ElementInterface> $elementType */
         foreach ($elementTypes as $elementType) {
             foreach ($elementType::searchableAttributes() as $attribute) {
                 $mapping[$fieldPrefix . 'attribute_' . $attribute] = $textField;

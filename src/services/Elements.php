@@ -191,7 +191,7 @@ class Elements extends Component
 
     /**
      * Builds the clause for a token — a term or an OR group. Excluded terms inside a group are
-     * hoisted to $mustNot (absolute exclusion). Recurses so a group containing a group works.
+     * hoisted to $mustNot (absolute exclusion).
      *
      * @param SearchQueryTerm|SearchQueryTermGroup $node
      * @param array $mustNot
@@ -203,7 +203,7 @@ class Elements extends Component
         if ($node instanceof SearchQueryTermGroup) {
             $should = [];
             foreach ($node->terms as $member) {
-                if ($member instanceof SearchQueryTerm && $member->exclude) {
+                if ($member->exclude) {
                     $mustNot[] = $this->buildClause($member);
                     continue;
                 }

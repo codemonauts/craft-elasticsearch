@@ -201,7 +201,7 @@ class IndexController extends BaseController
                 return;
             }
 
-            $timeTook = $result['took'] > 1000 ? DateTimeHelper::secondsToHumanTimeDuration(round($result['took'] / 1000)) : $result['took'] . 'ms';
+            $timeTook = $result['took'] > 1000 ? DateTimeHelper::secondsToHumanTimeDuration((int)round($result['took'] / 1000)) : $result['took'] . 'ms';
 
             $this->stdout('Old index: ' . $result['oldIndexName'] . PHP_EOL);
             $this->stdout('New index: ' . $result['newIndexName'] . PHP_EOL);
