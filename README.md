@@ -8,7 +8,7 @@ Replace Craft's database full-text search with Elasticsearch.
 
 ## Requirements
 
-- Craft CMS >= 3.6.18
+- Craft CMS >= 4.0.0
 
 ## Installation
 
@@ -17,7 +17,7 @@ Open your terminal and go to your Craft project:
 ``` shell
 cd /path/to/project
 composer require codemonauts/craft-elasticsearch
-./craft plugin/install elastic
+php craft plugin/install elastic
 ```
 
 You can also install the plugin via the Plugin Store in the Craft Control Panel.
