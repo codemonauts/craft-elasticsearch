@@ -1005,6 +1005,13 @@ class Indexes extends Component
         return $mapping;
     }
 
+    /**
+     * Returns the index settings for a site, including the language-aware default analyzer.
+     *
+     * @param Site $site The site to build the settings for.
+     *
+     * @return array
+     */
     public function buildSettings(Site $site): array
     {
         $language = $this->getStopWord($site);

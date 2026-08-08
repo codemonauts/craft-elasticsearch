@@ -6,6 +6,9 @@ use Craft;
 use craft\base\ElementInterface;
 use craft\queue\BaseJob;
 
+/**
+ * Indexes elements into Craft's own database search index.
+ */
 class UpdateDatabaseIndex extends BaseJob
 {
     /**

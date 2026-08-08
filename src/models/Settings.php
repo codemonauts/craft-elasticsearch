@@ -6,6 +6,9 @@ use Craft;
 use craft\base\Model;
 use craft\helpers\App;
 
+/**
+ * The plugin settings.
+ */
 class Settings extends Model
 {
     /**

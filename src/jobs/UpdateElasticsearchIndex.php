@@ -7,6 +7,9 @@ use Craft;
 use craft\base\ElementInterface;
 use craft\queue\BaseJob;
 
+/**
+ * Indexes elements into Elasticsearch.
+ */
 class UpdateElasticsearchIndex extends BaseJob
 {
     /**

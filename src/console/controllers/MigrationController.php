@@ -13,6 +13,9 @@ use craft\helpers\DateTimeHelper;
 use Exception;
 use yii\console\ExitCode;
 
+/**
+ * Commands to migrate between Craft's database index and Elasticsearch.
+ */
 class MigrationController extends BaseController
 {
     use BackupTrait;
@@ -24,6 +27,8 @@ class MigrationController extends BaseController
 
     /**
      * Lists the available migration commands.
+     *
+     * @return int
      */
     public function actionIndex(): int
     {
