@@ -1,6 +1,6 @@
 # Release Notes for Elasticsearch Plugin
 
-## 3.0.0
+## 3.0.0 - 2026-08-10
 
 ### Added
 
