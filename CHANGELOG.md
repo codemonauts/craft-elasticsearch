@@ -2,8 +2,6 @@
 
 ## 3.0.0
 
-> {note} This is the first Craft CMS 5 release. It requires Craft CMS 5 and PHP 8.2+.
-
 ### Added
 
 - Craft CMS 5 compatibility.
